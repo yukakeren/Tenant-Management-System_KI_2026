@@ -1,32 +1,31 @@
 # KosanKu-Tenant-Management-System
-**Scope**: Collecting, storing and returning onboarding data (profile, emergency contact, KTP scan, rental agreement, move-in video).
-
-**Security**: Login, ownership-based access control, and encryption with AES, DES and RC4. Tenant deletion requests after move-out.
 
 ## Details
 
 A web app where Kosan owners collect and store tenants information. It replaces the common practice of sending it via Whatsapp. However, it often faces problems such as expired message or mislocated tenant data resulting in lost information.
 
-Tenant data that needs protection:
-- PII: Full name, relative, emergency contact. 
-- KTP: Contains personal identification data
-- Video of current room condition used to claim deposit
+**Scope**: ollecting, storing and returning onboarding data; login; ownership-based access control; encryption with AES, DES and RC4; deletion requests after move-out. Out of scope: rent payment, room booking, chat, digital signing, face recognition.
+
+**Security**: Login, ownership-based access control, and encryption with AES, DES and RC4. Tenant deletion requests after move-out.
 
 One owner can manage many Kosan, but one tenant only occupy one Kosan room.
 
 ## Actors and Use Case
 
-**Actors**:
-1. Tenant: Data subject
-2. Owner: Data controller
-3. Admin: Manage account
+|Actor|	Role under UU PDP	| Can do|
+|-----------|-----------------|-----------------------------|
+|Tenant	|Data subject	| Fill profile and emergency contact, upload KTP / rental agreement / room video, view and download own documents, request deletion|
+|Owner|	Data controller|	Manage kos and rooms, assign tenants, view documents of own tenants only|
+|Admin|	Operator	|Manage accounts; has no way to decrypt documents|
 
 
 <p align="center">
   <img src="assets/use-case-diagram.png" alt="Use Case Diagram" width="500">
 </p>
 
-## Crypthography Plan
+## Data Classification
+
+UU PDP (UU No. 27/2022) Art. 4 splits personal data into specific (health, biometric, genetic, criminal records, child data, personal financial data) and general (name, sex, nationality, religion, marital status, and data combined to identify a person). The elucidation of Art. 4(2)(b) names a facial image as biometric data.
 
 Each stored item is encrypted under AES, DES and RC4, and every ciphertext carries an integrity check so tampered data is rejected rather than returned.
 
@@ -36,10 +35,4 @@ Each stored item is encrypted under AES, DES and RC4, and every ciphertext carri
 | DES    | CBC           | 56-bit effective                                   |
 | RC4    | Stream Cipher | Per-file key = HMAC-SHA256(user key, random nonce) |
 
-- RC4 never reuses a key. RC4 has no IV, so the same key on two files would reuse the keystream and leak both plaintexts. A fresh per-file key prevents that.
-- Keys are not stored next to the data. Each user gets random data keys, wrapped by a server master key kept outside the database.
-- Passwords are hashed, not encrypted, with Argon2id.
 - Large video is encrypted in chunks so a 200 MB file never sits fully in memory.
-- "Intact" is verified twice: the tag or HMAC must pass, and a SHA-256 of the decrypted file must match the hash recorded at upload.
-
-Benchmarking (throughput, memory, ciphertext overhead per file type) gets its own doc once the crypto module works.
