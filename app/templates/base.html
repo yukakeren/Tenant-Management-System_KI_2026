@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KosanKu</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+    <main class="mx-auto max-w-3xl p-4">
+    {% for kind, msg in flashes|default([]) %}
+      <div class="{{ 'flash-ok' if kind == 'ok' else 'flash-err' }}">
+        {{ msg }}
+      </div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
