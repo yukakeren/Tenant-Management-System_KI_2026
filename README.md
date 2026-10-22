@@ -36,3 +36,20 @@ Each stored item is encrypted under AES, DES and RC4, and every ciphertext carri
 | RC4    | Stream Cipher | Per-file key = HMAC-SHA256(user key, random nonce) |
 
 - Large video is encrypted in chunks so a 200 MB file never sits fully in memory.
+
+## Development
+
+Requires Python 3.12. Implementation plan: [docs/implementation](docs/implementation/README.md).
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+./scripts/setup_tailwind.sh                       # downloads Tailwind CLI into bin/
+
+cp .env.example .env                              # then fill SECRET_KEY and MASTER_KEY:
+python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
+
+bin/tailwindcss -i app/static/input.css -o app/static/app.css --watch   # terminal 1
+uvicorn app.main:app --reload                                            # terminal 2
+pytest -q                                                                # tests
+```
