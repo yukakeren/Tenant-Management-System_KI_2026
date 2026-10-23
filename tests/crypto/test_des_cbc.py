@@ -1,4 +1,4 @@
-"""Person 2. Known-answer test first (day 1), suite tests once des_cbc.py exists (day 2)."""
+"""Melvan. Known-answer test first (day 1), suite tests once des_cbc.py exists (day 2)."""
 
 from Crypto.Cipher import DES
 

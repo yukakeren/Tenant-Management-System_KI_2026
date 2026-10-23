@@ -1,59 +1,61 @@
 # Testing and Demo
 
-## Test layers
+## Tests
 
-| Layer | File | Owner | What it proves |
-|-------|------|-------|----------------|
-| Known-answer | `test_aes_gcm.py`, `test_des_cbc.py`, `test_rc4.py` | P1, P2, P3 | We call the primitive correctly (NIST / textbook / RFC 6229 vectors) |
-| Contract | `test_contract.py` | P4 | Every suite round-trips at all edge sizes and rejects every kind of tampering with `IntegrityError` only |
-| Container | `test_container.py` | P4 | Header parsing, length guard, read-ahead/final logic, multi-suite single pass |
-| Keys | `test_keys.py` | P4 | Wrap/unwrap, swapped `wrapped_dek` between users fails, admin always `PermissionError` |
-| Vault | `test_vault.py` | P4 | 3 blobs per item, atomic replace, shred removes files + key |
-| Auth | `test_auth.py` | P1 | Login, roles, CSRF required on every POST, inactive user blocked |
-| Access | `test_access.py` | P2 | IDOR matrix: owner A vs owner B ids, admin vs tenant/owner routes |
-| Tenant flow | `test_tenant_flow.py` | P3 | Upload validation, edge sizes through HTTP, re-upload |
+| What | File | Who | What it checks |
+|------|------|-----|----------------|
+| Known answers | `test_aes_gcm.py`, `test_des_cbc.py`, `test_rc4.py` | Ata, Melvan, Naura | We call each cipher correctly (GCM spec, textbook DES, RFC 6229 vectors) |
+| Contract | `test_contract.py` | Ajil | Every cipher round-trips at edge sizes and only ever fails with `IntegrityError` when data is changed |
+| Container | `test_container.py` | Ajil | Reading the header, the length limit, finding the last chunk, all three ciphers in one pass |
+| Keys | `test_keys.py` | Ajil | Wrapping and unwrapping, swapping `wrapped_dek` between users fails, admin always gets `PermissionError` |
+| Vault | `test_vault.py` | Ajil | 3 files per item, safe replacing, shredding removes the files and the key |
+| Login | `test_auth.py` | Ata | Login, roles, CSRF on every POST, inactive users blocked, forced password change |
+| Access | `test_access.py` | Melvan | Owner A can't use owner B's ids, admin can't open tenant or owner routes |
+| Tenant flow | `test_tenant_flow.py` | Naura | Upload checks, edge sizes over HTTP, re-uploading |
 
-Run: `pytest -q`. The 200 MB tests are marked `@pytest.mark.slow` and skipped by default. Run them with `pytest -m slow` on day 5 and day 7.
+Run everything with `pytest -q`. The 200 MB tests are marked `@pytest.mark.slow` and skipped by default. Run those with `pytest -m slow` on day 5 and day 7.
 
-## Tamper matrix (must be all red → `IntegrityError`)
+## Tamper checklist
+
+Every one of these should end in `IntegrityError`:
 
 | | AES | DES | RC4 |
 |---|---|---|---|
-| Flip 1 byte in header | ☐ | ☐ | ☐ |
-| Flip 1 byte in params | ☐ | ☐ | ☐ |
-| Flip 1 byte in ciphertext | ☐ | ☐ | ☐ |
-| Flip 1 byte in tag | ☐ | ☐ | ☐ |
-| Flip DES IV | n/a | ☐ | n/a |
+| Change 1 byte in the header | ☐ | ☐ | ☐ |
+| Change 1 byte in the params | ☐ | ☐ | ☐ |
+| Change 1 byte in the ciphertext | ☐ | ☐ | ☐ |
+| Change 1 byte in the tag | ☐ | ☐ | ☐ |
+| Change the DES IV | n/a | ☐ | n/a |
 | Swap two chunks | ☐ | ☐ | ☐ |
-| Drop last record | ☐ | ☐ | ☐ |
-| Cut last record in half | ☐ | ☐ | ☐ |
-| Append a copied record | ☐ | ☐ | ☐ |
-| Blob moved to another tenant | ☐ | ☐ | ☐ |
-| Blob moved to another kind (KTP ↔ agreement) | ☐ | ☐ | ☐ |
-| Wrong DEK | ☐ | ☐ | ☐ |
+| Remove the last record | ☐ | ☐ | ☐ |
+| Cut the last record in half | ☐ | ☐ | ☐ |
+| Add a copied record at the end | ☐ | ☐ | ☐ |
+| Move the file to another tenant | ☐ | ☐ | ☐ |
+| Swap KTP and agreement | ☐ | ☐ | ☐ |
+| Wrong key | ☐ | ☐ | ☐ |
 
-Tick these on day 7 from the test output and paste the table into the report.
+Tick these off on day 7 from the test results and copy the table into the report.
 
-## Demo script (~8 minutes)
+## Demo (about 8 minutes)
 
-1. **Login as tenant** (seeded). Fill the profile, upload a KTP image and a ~150 MB room video. Point out that the upload takes a few seconds because it's encrypted three times.
-2. **Show the disk:** `ls -la storage/blobs/<id>/` → three files per item, `xxd | head` → random bytes, `KSK1` magic visible, no JPEG header.
-3. **Login as owner.** Open the tenant: profile is readable. Download the KTP via AES, DES, and RC4 → `sha256sum` of all three downloads match the original.
-4. **Login as another owner** → the tenant isn't listed. Paste the first owner's URL → 404.
-5. **Login as admin** → user list with email/role/room only. No document routes exist. Show `unwrap_dek` refusing admin in the code.
-6. **Tamper:** `python scripts/tamper.py --kind ktp --cipher rc4 --mode flip` → download via RC4 → 409. Then AES still works (only the RC4 copy was damaged). Admin audit log shows the failure.
-7. **Malleability slide:** run the RC4 malleability test from `test_rc4.py`, which shows why the MAC is needed.
-8. **Deletion:** tenant requests deletion → owner approves → blob dir gone, `wrapped_dek` is NULL in SQLite.
+1. **Log in as a tenant** (from the seed). Fill in the profile, upload a KTP photo and a room video of about 150 MB. Mention that the upload takes a few seconds because it's being encrypted three times.
+2. **Show the files on disk:** `ls -la storage/blobs/<id>/` shows three files per item. `xxd | head` shows random-looking bytes and our `KSK1` header, with no JPEG header anywhere.
+3. **Log in as the owner.** Open the tenant and show the profile can be read. Download the KTP with AES, DES and RC4, and show that `sha256sum` matches the original for all three.
+4. **Log in as a different owner.** The tenant isn't in the list, and pasting the first owner's URL gives 404.
+5. **Log in as admin.** The user list only shows email, role and room. There are no document pages. Show in the code that `unwrap_dek` refuses admin.
+6. **Tamper:** run `python scripts/tamper.py --kind ktp --cipher rc4 --mode flip`, then download with RC4 and get 409. AES still works, since only the RC4 copy was damaged. The admin audit log shows the failure.
+7. **Bit-flipping slide:** run the RC4 bit-flipping test from `test_rc4.py` to show why the MAC is needed.
+8. **Deletion:** the tenant asks for deletion, the owner approves, the tenant's folder is gone, and `wrapped_dek` is NULL in SQLite.
 9. **Benchmark table** from `bench.csv`.
 
 ## Report checklist
 
-- [ ] Architecture + key hierarchy diagram (P4)
-- [ ] AES-GCM section (P1)
-- [ ] DES-CBC + HMAC section (P2)
-- [ ] RC4 section (P3)
-- [ ] Chunked mode + tamper matrix (P4)
-- [ ] Access control + IDOR results (P2)
-- [ ] UU PDP mapping: data classification, controller/subject/operator roles, deletion = crypto-shredding (P3 + P1)
-- [ ] Benchmark + memory results (P4)
+- [ ] Architecture and key diagram (Ajil)
+- [ ] AES-GCM section (Ata)
+- [ ] DES-CBC + HMAC section (Melvan)
+- [ ] RC4 section (Naura)
+- [ ] Chunked mode and the tamper checklist (Ajil)
+- [ ] Access control and the access test results (Melvan)
+- [ ] UU PDP: data classification, the roles (controller, subject, operator), deletion through crypto-shredding (Naura and Ata)
+- [ ] Benchmark and memory results (Ajil)
 - [ ] Limitations and what we'd do with more time (everyone)

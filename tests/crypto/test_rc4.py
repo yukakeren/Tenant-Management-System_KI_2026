@@ -1,4 +1,4 @@
-"""Person 3. Known-answer test first (day 1), suite tests once rc4.py exists (day 2)."""
+"""Naura. Known-answer test first (day 1), suite tests once rc4.py exists (day 2)."""
 
 from Crypto.Cipher import ARC4
 

@@ -1,4 +1,4 @@
-"""Person 1. Known-answer test first (day 1), suite tests once aes_gcm.py exists (day 2)."""
+"""Ata. Known-answer test first (day 1), suite tests once aes_gcm.py exists (day 2)."""
 
 from Crypto.Cipher import AES
 
