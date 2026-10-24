@@ -97,7 +97,7 @@ Watch out for:
 
 ### Day 4: admin pages
 - `GET /admin/users`: email, role, active, created date, and the room/kos for tenants. **No profile data.** This is the "view user non-sensitive data" use case.
-- `POST /admin/users` with email and role (owner or tenant, never admin). Make a temp password with `secrets.token_urlsafe(9)` and set `must_change_password = True`. For tenants, call Ajil's `keys.create_dek(user)` so they have a key from the start. Show the temp password once and don't save or log it.
+- `POST /admin/users` with email and role (owner or tenant, never admin). Make a temp password with `secrets.token_urlsafe(9)` and set `must_change_password = True`. For tenants, call Naura's `keys.create_dek(user)` so they have a key from the start. Show the temp password once and don't save or log it.
 - `POST /admin/users/{id}/reset-password`: new temp password, `must_change_password = True`. Documents aren't affected because the key isn't tied to the password.
 - `POST /admin/users/{id}/toggle`: activate or deactivate.
 - Admin must have no route that touches documents. Add a test that checks `routes/admin.py` doesn't import `vault`. It's a crude check, but it works.
@@ -116,13 +116,13 @@ Watch out for:
 | I give | To | When |
 |--------|----|------|
 | models, `base.html`, shared CSS classes | everyone | day 1 (done) |
-| `current_user`, `require_role`, `check_csrf` | Melvan, Naura | day 3 |
+| `current_user`, `require_role`, `check_csrf` | Melvan, Ajil | day 3 |
 | `audit.log` | everyone | an empty stub on day 3 so people can call it, the real thing on day 6 |
 
 | I need | From | When |
 |--------|------|------|
-| `base.py`, `kdf.py`, contract tests | Ajil | day 1 (done) |
-| `keys.create_dek` | Ajil | day 3 |
+| `base.py`, `kdf.py`, contract tests | Naura | day 1 (done) |
+| `keys.create_dek` | Naura | day 3 |
 
 ## For the report
 

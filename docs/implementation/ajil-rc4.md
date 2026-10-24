@@ -1,4 +1,4 @@
-# Naura: RC4 + HMAC, Tenant Pages
+# Ajil: RC4 + HMAC, Tenant Pages
 
 **Cipher:** RC4 with a new key per file (`HMAC-SHA256(user key, random nonce)`, from the README), the first 3072 bytes of keystream dropped, and an HMAC-SHA256 tag on every chunk.
 **App:** everything the tenant does: profile and emergency contact, uploading KTP / rental agreement / room video, viewing and downloading their own documents, requesting deletion.
@@ -16,7 +16,7 @@ tests/crypto/test_rc4.py, tests/web/test_tenant_flow.py
 
 ## Cipher: `rc4.py`
 
-Spec: [crypto-spec.md](crypto-spec.md#rc4--hmac-naura).
+Spec: [crypto-spec.md](crypto-spec.md#rc4--hmac-ajil).
 
 ```python
 import hmac
@@ -123,13 +123,13 @@ Watch out for:
 
 | I give | To | When |
 |--------|----|------|
-| `uploads.validate_stream` | Ajil (the vault calls it per chunk, or it wraps the file before the vault) | day 5 |
+| `uploads.validate_stream` | Naura (the vault calls it per chunk, or it wraps the file before the vault) | day 5 |
 | working tenant pages with the seed data | everyone (for the demo) | day 5 |
 
 | I need | From | When |
 |--------|------|------|
 | `require_role`, `check_csrf`, base layout | Ata | day 3 |
-| `vault.store_bytes`, `store_item`, `load_bytes`, `verify_item`, `open_item` | Ajil | days 4 to 5 |
+| `vault.store_bytes`, `store_item`, `load_bytes`, `verify_item`, `open_item` | Naura | days 4 to 5 |
 | verify-then-stream helper | Melvan | day 5 |
 
 ## For the report

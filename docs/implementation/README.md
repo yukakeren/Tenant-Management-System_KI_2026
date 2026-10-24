@@ -12,8 +12,8 @@ We're keeping the UI simple (server-rendered pages with Tailwind, no JS framewor
 | [architecture.md](architecture.md) | Stack, folders, database tables, how keys are stored, and the main flows |
 | [ata-aes-gcm.md](ata-aes-gcm.md) | Ata: AES-256-GCM, project skeleton, login, admin |
 | [melvan-des-cbc.md](melvan-des-cbc.md) | Melvan: DES-CBC + HMAC, owner pages, access control, approving deletion |
-| [naura-rc4.md](naura-rc4.md) | Naura: RC4 + HMAC, tenant pages (profile, uploads, deletion request) |
-| [ajil-crypto-core.md](ajil-crypto-core.md) | Ajil: chunked file mode, keys, vault, benchmark and tamper scripts |
+| [ajil-rc4.md](ajil-rc4.md) | Ajil: RC4 + HMAC, tenant pages (profile, uploads, deletion request) |
+| [naura-crypto-core.md](naura-crypto-core.md) | Naura: chunked file mode, keys, vault, benchmark and tamper scripts |
 | [testing.md](testing.md) | Tests, the tamper checklist, the demo, and the report checklist |
 
 ## Who does what
@@ -22,16 +22,16 @@ We're keeping the UI simple (server-rendered pages with Tailwind, no JS framewor
 |---|---|---|
 | **Ata** | AES-256-GCM | Skeleton, DB, login/session, CSRF, base layout, admin pages |
 | **Melvan** | DES-CBC with HMAC-SHA256 (encrypt-then-MAC) | Kos and rooms, assigning tenants, ownership checks, owner document view, approving deletion |
-| **Naura** | RC4 (drop first 3072 bytes) with a per-file key and HMAC-SHA256 | Tenant profile and emergency contact, uploads (KTP, agreement, video), my documents, deletion request |
-| **Ajil** | The chunked file format all three ciphers run inside, key wrapping, storing everything three times | Streaming upload/download, crypto-shredding, benchmark and tamper scripts, merging |
+| **Ajil** | RC4 (drop first 3072 bytes) with a per-file key and HMAC-SHA256 | Tenant profile and emergency contact, uploads (KTP, agreement, video), my documents, deletion request |
+| **Naura** | The chunked file format all three ciphers run inside, key wrapping, storing everything three times | Streaming upload/download, crypto-shredding, benchmark and tamper scripts, merging |
 
-How we split the crypto: Ata, Melvan and Naura each only write the part that encrypts and decrypts **one chunk** for their cipher. Ajil writes everything around that (splitting files into chunks, the file header, keys, saving three copies). Because of that we can all work at the same time from day 2. We agree on the interface at the end of day 1, and after that we don't change it without talking about it first.
+How we split the crypto: Ata, Melvan and Ajil each only write the part that encrypts and decrypts **one chunk** for their cipher. Naura writes everything around that (splitting files into chunks, the file header, keys, saving three copies). Because of that we can all work at the same time from day 2. We agree on the interface at the end of day 1, and after that we don't change it without talking about it first.
 
 ## How we work
 
 - Quick sync every morning (15 min), and merge what's working into `main` every night.
 - Never push straight to `main`. Make a branch (`feat/aes-gcm`, `feat/owner`, ...) and open a PR. Someone else has to review it before it gets merged.
-- Ajil reviews anything in `app/crypto/`. Ata reviews routes and templates.
+- Naura reviews anything in `app/crypto/`. Ata reviews routes and templates.
 - If you're stuck for more than an hour, say so in the group.
 
 ## We're done when

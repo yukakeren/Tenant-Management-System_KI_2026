@@ -4,14 +4,14 @@
 
 | What | File | Who | What it checks |
 |------|------|-----|----------------|
-| Known answers | `test_aes_gcm.py`, `test_des_cbc.py`, `test_rc4.py` | Ata, Melvan, Naura | We call each cipher correctly (GCM spec, textbook DES, RFC 6229 vectors) |
-| Contract | `test_contract.py` | Ajil | Every cipher round-trips at edge sizes and only ever fails with `IntegrityError` when data is changed |
-| Container | `test_container.py` | Ajil | Reading the header, the length limit, finding the last chunk, all three ciphers in one pass |
-| Keys | `test_keys.py` | Ajil | Wrapping and unwrapping, swapping `wrapped_dek` between users fails, admin always gets `PermissionError` |
-| Vault | `test_vault.py` | Ajil | 3 files per item, safe replacing, shredding removes the files and the key |
+| Known answers | `test_aes_gcm.py`, `test_des_cbc.py`, `test_rc4.py` | Ata, Melvan, Ajil | We call each cipher correctly (GCM spec, textbook DES, RFC 6229 vectors) |
+| Contract | `test_contract.py` | Naura | Every cipher round-trips at edge sizes and only ever fails with `IntegrityError` when data is changed |
+| Container | `test_container.py` | Naura | Reading the header, the length limit, finding the last chunk, all three ciphers in one pass |
+| Keys | `test_keys.py` | Naura | Wrapping and unwrapping, swapping `wrapped_dek` between users fails, admin always gets `PermissionError` |
+| Vault | `test_vault.py` | Naura | 3 files per item, safe replacing, shredding removes the files and the key |
 | Login | `test_auth.py` | Ata | Login, roles, CSRF on every POST, inactive users blocked, forced password change |
 | Access | `test_access.py` | Melvan | Owner A can't use owner B's ids, admin can't open tenant or owner routes |
-| Tenant flow | `test_tenant_flow.py` | Naura | Upload checks, edge sizes over HTTP, re-uploading |
+| Tenant flow | `test_tenant_flow.py` | Ajil | Upload checks, edge sizes over HTTP, re-uploading |
 
 Run everything with `pytest -q`. The 200 MB tests are marked `@pytest.mark.slow` and skipped by default. Run those with `pytest -m slow` on day 5 and day 7.
 
@@ -50,12 +50,12 @@ Tick these off on day 7 from the test results and copy the table into the report
 
 ## Report checklist
 
-- [ ] Architecture and key diagram (Ajil)
+- [ ] Architecture and key diagram (Naura)
 - [ ] AES-GCM section (Ata)
 - [ ] DES-CBC + HMAC section (Melvan)
-- [ ] RC4 section (Naura)
-- [ ] Chunked mode and the tamper checklist (Ajil)
+- [ ] RC4 section (Ajil)
+- [ ] Chunked mode and the tamper checklist (Naura)
 - [ ] Access control and the access test results (Melvan)
-- [ ] UU PDP: data classification, the roles (controller, subject, operator), deletion through crypto-shredding (Naura and Ata)
-- [ ] Benchmark and memory results (Ajil)
+- [ ] UU PDP: data classification, the roles (controller, subject, operator), deletion through crypto-shredding (Ajil and Ata)
+- [ ] Benchmark and memory results (Naura)
 - [ ] Limitations and what we'd do with more time (everyone)

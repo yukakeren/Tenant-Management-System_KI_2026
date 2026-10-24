@@ -1,4 +1,4 @@
-# Ajil: Chunked File Mode, Keys, Vault
+# Naura: Chunked File Mode, Keys, Vault
 
 **Cipher:** the chunked file format that all three ciphers run inside. That covers splitting files into chunks, numbering them, marking the last one, what gets authenticated, and feeding each chunk to all three ciphers in one pass. Also key derivation and wrapping user keys.
 **App:** the vault (the only module routes use for anything encrypted), streaming uploads and downloads, crypto-shredding, the benchmark and tamper scripts. I'm also in charge of merging.
@@ -113,7 +113,7 @@ def shred_user(subject, actor) -> None
 
 ## Day 5: streaming and memory test
 
-- Hook up `StreamingResponse(vault.open_item(...), media_type=item.mime, headers={"Content-Disposition": 'attachment; filename="ktp.pdf"'})` together with Melvan and Naura.
+- Hook up `StreamingResponse(vault.open_item(...), media_type=item.mime, headers={"Content-Disposition": 'attachment; filename="ktp.pdf"'})` together with Melvan and Ajil.
 - Memory test: `scripts/bench.py --memory` makes a random 200 MB file, stores it through the vault, downloads it with the TestClient, and prints the peak memory (`resource.getrusage`). It should stay under 100 MB. Put the number in the report.
 
 ## Day 6: scripts

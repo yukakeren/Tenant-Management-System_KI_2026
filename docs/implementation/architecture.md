@@ -27,30 +27,30 @@ app/
     deps.py               current_user, require_role(...)                     Ata
     routes.py             /login, /logout, /account/password                  Ata
   crypto/
-    base.py               cipher interface, IntegrityError, registry          Ajil
-    kdf.py                hkdf_sha256(), hmac_sha256()                        Ajil
-    container.py          chunked file format: write / read / verify          Ajil
-    keys.py               master key, create / wrap / unwrap / destroy DEK    Ajil
-    vault.py              store_item, open_item, verify_item, shred_user      Ajil
+    base.py               cipher interface, IntegrityError, registry          Naura
+    kdf.py                hkdf_sha256(), hmac_sha256()                        Naura
+    container.py          chunked file format: write / read / verify          Naura
+    keys.py               master key, create / wrap / unwrap / destroy DEK    Naura
+    vault.py              store_item, open_item, verify_item, shred_user      Naura
     aes_gcm.py            AES-256-GCM                                         Ata
     des_cbc.py            DES-CBC + HMAC-SHA256                               Melvan
-    rc4.py                RC4-drop3072 + HMAC-SHA256                          Naura
+    rc4.py                RC4-drop3072 + HMAC-SHA256                          Ajil
   services/
     access.py             who can see whose data                              Melvan
-    uploads.py            size limits, file type checks                       Naura (Ata helps)
+    uploads.py            size limits, file type checks                       Ajil (Ata helps)
     audit.py              writes to audit_log                                 Ata
   routes/
-    tenant.py             profile, uploads, my documents, deletion request    Naura
+    tenant.py             profile, uploads, my documents, deletion request    Ajil
     owner.py              kos, rooms, assign, tenant docs, approve deletion   Melvan
     admin.py              accounts, audit log                                 Ata
   templates/              base.html, login.html, tenant/, owner/, admin/
   static/                 input.css (source), app.css (built, not in git)
 storage/blobs/<subject_id>/<item_id>.<cipher>.bin                             not in git
-scripts/                  seed.py (Ata), bench.py and tamper.py (Ajil)
+scripts/                  seed.py (Ata), bench.py and tamper.py (Naura)
 tests/
-  crypto/                 test_contract.py, test_container.py, test_keys.py, test_vault.py (Ajil)
-                          test_aes_gcm.py (Ata), test_des_cbc.py (Melvan), test_rc4.py (Naura)
-  web/                    test_auth.py (Ata), test_access.py (Melvan), test_tenant_flow.py (Naura)
+  crypto/                 test_contract.py, test_container.py, test_keys.py, test_vault.py (Naura)
+                          test_aes_gcm.py (Ata), test_des_cbc.py (Melvan), test_rc4.py (Ajil)
+  web/                    test_auth.py (Ata), test_access.py (Melvan), test_tenant_flow.py (Ajil)
 ```
 
 ## Tables
@@ -191,9 +191,9 @@ Even if a copy of a file survives somewhere (a backup, for example), nobody can 
 | owner | `GET/POST /owner/kos`, `GET/POST /owner/kos/{id}/rooms`, `POST /owner/rooms/{id}/assign` (by email), `POST /owner/rooms/{id}/unassign` | Melvan |
 | owner | `GET /owner/tenants`, `GET /owner/tenants/{id}`, `GET /owner/tenants/{id}/documents/{kind}` | Melvan |
 | owner | `GET /owner/deletion-requests`, `POST .../{id}/approve`, `POST .../{id}/reject` | Melvan |
-| tenant | `GET/POST /tenant/profile` | Naura |
-| tenant | `GET /tenant/documents`, `POST /tenant/documents/{kind}`, `GET /tenant/documents/{kind}` | Naura |
-| tenant | `GET/POST /tenant/deletion-request` | Naura |
+| tenant | `GET/POST /tenant/profile` | Ajil |
+| tenant | `GET /tenant/documents`, `POST /tenant/documents/{kind}`, `GET /tenant/documents/{kind}` | Ajil |
+| tenant | `GET/POST /tenant/deletion-request` | Ajil |
 
 ## UI
 
