@@ -1,13 +1,13 @@
 # Crypto Spec
 
-This is what all four of us code against. Ajil wrote `app/crypto/base.py` from it on day 1. Once we've all agreed on it at the end of day 1, we don't change the interface anymore. If you really need to, bring it up at the morning sync instead of just changing it in your branch.
+This is what all four of us code against. Naura wrote `app/crypto/base.py` from it on day 1. Once we've all agreed on it at the end of day 1, we don't change the interface anymore. If you really need to, bring it up at the morning sync instead of just changing it in your branch.
 
 ## What we want
 
 1. Every piece of tenant data is saved three times: AES-256-GCM, DES-CBC + HMAC-SHA256, and RC4 + HMAC-SHA256.
 2. Every copy has an integrity check. If someone edits, cuts, reorders, or adds to a file, or moves it to another user, we get `IntegrityError`. We never return wrong data.
 3. Files are encrypted in chunks so memory stays low even for a 200 MB video.
-4. Each cipher person only writes the code for one chunk. The rest (chunking, header, keys) is shared code from Ajil.
+4. Each cipher person only writes the code for one chunk. The rest (chunking, header, keys) is shared code from Naura.
 
 ## The interface
 
@@ -48,7 +48,7 @@ Rules for every cipher:
 
 ## File format
 
-Ajil's `app/crypto/container.py`. All numbers are big-endian.
+Naura's `app/crypto/container.py`. All numbers are big-endian.
 
 ```
 Header
@@ -130,7 +130,7 @@ record   = iv + ciphertext + tag (32 bytes)
 
 Encrypt first, then MAC. The tag is checked before unpadding so there's no padding oracle. DES only has a 56-bit effective key (the README says so too). A new key per file means no single DES key encrypts enough data to hit the 64-bit block problem (Sweet32).
 
-### RC4 + HMAC (Naura)
+### RC4 + HMAC (Ajil)
 
 ```
 params   = 16 random bytes (nonce, new for every file)
@@ -165,7 +165,7 @@ Everybody derives keys through these so we all do it the same way.
 
 ## Wrapping user keys
 
-Ajil's `app/crypto/keys.py`:
+Naura's `app/crypto/keys.py`:
 
 ```
 wrapped_dek = nonce (12) + AES-256-GCM(MASTER_KEY, dek, aad = "dek|" + user_id) + tag (16)

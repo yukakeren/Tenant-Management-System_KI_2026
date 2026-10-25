@@ -95,7 +95,7 @@ Watch out for:
 - Every query filters on `kos.owner_id == me.id`. Put the filter **in the query** instead of loading by id and checking afterwards. That way, if someone forgets a check, the result is just empty.
 
 ### Day 4: `access.py` and assigning tenants
-This file is the one place that decides who can see whose data. Ajil's `keys.unwrap_dek` uses it.
+This file is the one place that decides who can see whose data. Naura's `keys.unwrap_dek` uses it.
 
 ```python
 def owner_has_tenant(owner, tenant) -> bool      # True only if the tenant is in a room of the owner's kos
@@ -111,15 +111,15 @@ def get_owned_tenant_or_404(db, owner, tenant_id)
 - `GET /owner/tenants`: all tenants across my kos, with their room, kos, and which documents they've uploaded.
 - `GET /owner/tenants/{id}`: the decrypted profile (`vault.load_bytes` for `profile`) and the list of documents. Each document gets `AES | DES | RC4` download links pointing to `/owner/tenants/{id}/documents/{kind}?cipher=...`.
 - The download follows the flow in [architecture.md](architecture.md#downloading-owner-opens-a-tenants-ktp): access check, verify, then stream. If it raises `IntegrityError`, show the 409 page and call `audit.log(ok=False)`.
-- Put that verify-then-stream part in one helper so Naura can use it on the tenant side too.
+- Put that verify-then-stream part in one helper so Ajil can use it on the tenant side too.
 - A tenant that doesn't exist and a tenant that isn't yours both give 404. Don't use 403, because that tells someone the id exists.
 
 ### Day 6: approving deletion
 - `GET /owner/deletion-requests`: pending requests from my tenants.
-- `POST .../{id}/approve`: `vault.shred_user(tenant)` (Ajil), empty the room, deactivate the user, set status to `done`, write to the audit log.
+- `POST .../{id}/approve`: `vault.shred_user(tenant)` (Naura), empty the room, deactivate the user, set status to `done`, write to the audit log.
 - `POST .../{id}/reject`: a reason is required, and the tenant can see it.
 - Approving can't be undone, so show a confirmation page first ("This permanently deletes all of X's documents. Type the room number to confirm.").
-- Talk to Naura about tenants who have already moved out (no room, so no current owner). The plan is that the request saves `owner_id` when it's made, and if there's no owner at all it gets approved automatically.
+- Talk to Ajil about tenants who have already moved out (no room, so no current owner). The plan is that the request saves `owner_id` when it's made, and if there's no owner at all it gets approved automatically.
 
 ### Day 7: access tests (`tests/web/test_access.py`)
 Set up owner A and owner B, each with one tenant. For every owner route that takes an id, check that owner A gets 404 when using B's ids (kos, room, tenant, document, deletion request). Also check that an admin gets 403 or 404 on every `/owner/*` and `/tenant/*` route.
@@ -128,14 +128,14 @@ Set up owner A and owner B, each with one tenant. For every owner route that tak
 
 | I give | To | When |
 |--------|----|------|
-| `owner_has_tenant`, `can_view_subject` | Ajil (for `keys.unwrap_dek`) | day 4 morning |
-| verify-then-stream helper | Naura | day 5 |
+| `owner_has_tenant`, `can_view_subject` | Naura (for `keys.unwrap_dek`) | day 4 morning |
+| verify-then-stream helper | Ajil | day 5 |
 | owner tenant page | everyone (for the demo) | day 5 |
 
 | I need | From | When |
 |--------|------|------|
 | models, `require_role`, `check_csrf` | Ata | day 1 / day 3 |
-| `vault.load_bytes`, `verify_item`, `open_item`, `shred_user` | Ajil | days 4 to 6 |
+| `vault.load_bytes`, `verify_item`, `open_item`, `shred_user` | Naura | days 4 to 6 |
 
 ## For the report
 
