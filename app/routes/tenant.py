@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import HTMLResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 import io
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -25,7 +26,7 @@ from app.models import (
     DeletionStatus,
     AuditLog,
 )
-from app.services.upload import validate_and_read_upload
+from app.services.upload import validate_upload_stream
 from app.crypto import vault
 from app.crypto.base import IntegrityError
 from app.config import settings
@@ -106,21 +107,27 @@ async def upload_document(
     user: User = Depends(get_current_tenant),
     db: Session = Depends(get_db),
 ):
-    filename, plain_bytes = await validate_and_read_upload(file, doc_type)
+    filename, plain_size = await run_in_threadpool(validate_upload_stream, file, doc_type)
     kind_map = {"ktp": ItemKind.ktp, "agreement": ItemKind.agreement, "video": ItemKind.video}
     try:
-        item = vault.store_item(user, kind_map[doc_type], io.BytesIO(plain_bytes),
-                                file.content_type or "application/octet-stream", user)
+        item = await run_in_threadpool(
+            vault.store_item,
+            user,
+            kind_map[doc_type],
+            file.file,
+            file.content_type or "application/octet-stream",
+            user,
+        )
     except PermissionError:
         raise HTTPException(status_code=403, detail="Akses ditolak") from None
     except IntegrityError:
         raise HTTPException(status_code=409, detail="Integritas dokumen gagal") from None
     db.add(AuditLog(actor_id=user.id, action=f"upload_{doc_type}",
                     target_type="secret_item", target_id=item.id, ok=True,
-                    detail=f"Encrypted with AES, DES, RC4 ({len(plain_bytes)} bytes)"))
+                    detail=f"Encrypted with AES, DES, RC4 ({plain_size} bytes)"))
     db.commit()
     return {"status": "success", "doc_type": doc_type,
-            "filename": filename, "plain_size": len(plain_bytes)}
+            "filename": filename, "plain_size": plain_size}
 
 
 @router.get("/documents")

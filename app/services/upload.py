@@ -8,7 +8,7 @@ from fastapi import UploadFile, HTTPException, status
 
 MAX_SIZE_KTP = 5 * 1024 * 1024         # 5 MB
 MAX_SIZE_AGREEMENT = 10 * 1024 * 1024  # 10 MB
-MAX_SIZE_VIDEO = 50 * 1024 * 1024      # 50 MB
+MAX_SIZE_VIDEO = 200 * 1024 * 1024      # 200 MB
 
 DOCUMENT_SPECS = {
     "ktp": {
@@ -101,3 +101,50 @@ async def validate_and_read_upload(
         )
 
     return cleaned_name, content
+
+
+def validate_upload_stream(upload_file: UploadFile, doc_type: str) -> tuple[str, int]:
+    if doc_type not in DOCUMENT_SPECS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipe dokumen '{doc_type}' tidak dikenali.",
+        )
+
+    spec = DOCUMENT_SPECS[doc_type]
+    filename = sanitize_filename(upload_file.filename or "unknown_file")
+    _, ext = os.path.splitext(filename.lower())
+
+    if ext not in spec["allowed_exts"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ekstensi '{ext}' tidak diizinkan.",
+        )
+
+    if upload_file.content_type not in spec["allowed_mimes"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipe MIME tidak diizinkan.",
+        )
+
+    stream = upload_file.file
+
+    stream.seek(0, os.SEEK_END)
+    size = stream.tell()
+    stream.seek(0)
+
+    if size == 0:
+        raise HTTPException(status_code=400, detail="File kosong.")
+
+    if size > spec["max_size"]:
+        raise HTTPException(status_code=413, detail="File terlalu besar.")
+
+    header = stream.read(32)
+    stream.seek(0)
+
+    if not validate_magic_bytes(header, doc_type):
+        raise HTTPException(
+            status_code=400,
+            detail="Konten berkas tidak valid (header file tidak sesuai).",
+        )
+
+    return filename, size

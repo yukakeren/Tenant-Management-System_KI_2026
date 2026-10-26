@@ -245,3 +245,59 @@ def test_tenant_deletion_request():
     assert log.ok is True
 
     db.close()
+
+
+def test_tenant_video_200mib(tmp_path):
+    from app.models import SecretItem, SecretBlob, CipherName, ItemKind
+    from sqlalchemy import select
+
+    size = 200 * 1024 * 1024
+    video_path = tmp_path / "test_video.mp4"
+
+    # Membuat video dummy 200 MiB tanpa memuatnya ke RAM
+    with open(video_path, "wb") as f:
+        f.write(b"\x00\x00\x00\x18ftypisom")
+        remaining = size - f.tell()
+        chunk = b"\x00" * (1024 * 1024)
+
+        while remaining > 0:
+            part = chunk[:min(remaining, len(chunk))]
+            f.write(part)
+            remaining -= len(part)
+
+    # Upload video melalui endpoint tenant
+    with open(video_path, "rb") as f:
+        response = client.post(
+            "/tenant/upload/video",
+            files={"file": ("test_video.mp4", f, "video/mp4")},
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["plain_size"] == size
+
+    # Memastikan ketiga cipher benar-benar tersimpan
+    db = TestingSessionLocal()
+    try:
+        item = db.scalar(
+            select(SecretItem).where(
+                SecretItem.subject_id == 2,
+                SecretItem.kind == ItemKind.video,
+            )
+        )
+
+        assert item is not None
+
+        blobs = db.scalars(
+            select(SecretBlob).where(
+                SecretBlob.item_id == item.id
+            )
+        ).all()
+
+        assert {blob.cipher for blob in blobs} == {
+            CipherName.aes,
+            CipherName.des,
+            CipherName.rc4,
+        }
+    finally:
+        db.close()
+
