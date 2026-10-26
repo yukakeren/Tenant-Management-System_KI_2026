@@ -9,6 +9,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import settings
 from .db import init_db
 
+from app.routes.tenant import router as tenant_router
+
+
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
@@ -37,6 +40,7 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(request, "index.html")
 
     # todo : app.include_router(auth.router), owner.router, tenant.router, admin.router
+    app.include_router(tenant_router)
 
     return app
 
