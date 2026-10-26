@@ -1,6 +1,9 @@
 """Naura. Known-answer test first (day 1), suite tests once rc4.py exists (day 2)."""
 
+import os
+import pytest
 from Crypto.Cipher import ARC4
+from app.crypto.rc4 import RC4Drop3072Cipher, derive_rc4_key, IntegrityError
 
 # RFC 6229, 40-bit key 0x0102030405, keystream at offsets 0 and 16
 RFC_KEY = bytes.fromhex("0102030405")
@@ -35,4 +38,53 @@ def test_rc4_is_malleable_without_mac():
     assert ARC4.new(RFC_KEY).decrypt(bytes(ct)) == b"NIK=9201234567890001"
 
 
-# TODO day 2: per-file key = HMAC(dek, nonce), out-of-order index → IntegrityError.
+def test_rc4_per_file_key_unique_per_nonce():
+    dek = os.urandom(32)
+    nonce1 = os.urandom(16)
+    nonce2 = os.urandom(16)
+    
+    k1 = derive_rc4_key(dek, nonce1)
+    k2 = derive_rc4_key(dek, nonce2)
+    
+    assert len(k1) == 32
+    assert len(k2) == 32
+    assert k1 != k2, "Key per-file harus unik untuk setiap nonce"
+
+
+def test_rc4_roundtrip():
+    dek = os.urandom(32)
+    plaintext = b"Berkas KTP Tenant Rahasia 3201234567890001"
+    
+    nonce, ciphertext, tag = RC4Drop3072Cipher.encrypt(plaintext, dek)
+    assert ciphertext != plaintext
+    
+    decrypted = RC4Drop3072Cipher.decrypt(nonce, ciphertext, tag, dek)
+    assert decrypted == plaintext
+
+
+def test_rc4_mac_prevents_malleability():
+    """Memastikan bit-flipping yang sebelumnya lolos, sekarang DITOLAK oleh HMAC."""
+    dek = os.urandom(32)
+    pt = b"NIK=3201234567890001"
+    
+    nonce, ciphertext, tag = RC4Drop3072Cipher.encrypt(pt, dek)
+    
+    # Tamper 1 byte pada ciphertext
+    tampered_ct = bytearray(ciphertext)
+    tampered_ct[4] ^= ord("3") ^ ord("9")
+    
+    # Harus melempar IntegrityError, bukan terdekripsi jadi data palsu
+    with pytest.raises(IntegrityError):
+        RC4Drop3072Cipher.decrypt(nonce, bytes(tampered_ct), tag, dek)
+
+
+def test_rc4_tampered_nonce_fails():
+    dek = os.urandom(32)
+    pt = b"Data Penting"
+    nonce, ciphertext, tag = RC4Drop3072Cipher.encrypt(pt, dek)
+    
+    tampered_nonce = bytearray(nonce)
+    tampered_nonce[0] ^= 0xFF
+    
+    with pytest.raises(IntegrityError):
+        RC4Drop3072Cipher.decrypt(bytes(tampered_nonce), ciphertext, tag, dek)
