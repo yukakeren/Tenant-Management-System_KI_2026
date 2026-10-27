@@ -1,49 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ tenant.email }} · KosanKu{% endblock %}
+{% block title %}{{ t.email }} · KosanKu{% endblock %}
 {% block content %}
 <div class="card">
   <a href="/owner/tenants" class="nav-link text-sm">&larr; All tenants</a>
-  <h1 class="mt-2 text-xl font-semibold">{{ tenant.email }}</h1>
-  <p class="text-sm text-slate-500">{{ tenant.room.kos.name }} / room {{ tenant.room.number }}</p>
-
-  <h2 class="mt-6 text-lg font-semibold">Profile</h2>
-  {% if profile_error %}
-    <div class="flash-err mt-2">{{ profile_error }}</div>
-  {% elif profile %}
-    <dl class="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-      <div><dt class="text-slate-500">Full name</dt><dd>{{ profile.full_name }}</dd></div>
-      <div><dt class="text-slate-500">NIK</dt><dd>{{ profile.nik }}</dd></div>
-      <div><dt class="text-slate-500">Birth date</dt><dd>{{ profile.birth_date }}</dd></div>
-      <div><dt class="text-slate-500">Gender</dt><dd>{{ profile.gender }}</dd></div>
-      <div><dt class="text-slate-500">Phone</dt><dd>{{ profile.phone }}</dd></div>
-      <div><dt class="text-slate-500">Occupation</dt><dd>{{ profile.occupation }}</dd></div>
-      <div class="sm:col-span-2"><dt class="text-slate-500">Home address</dt><dd>{{ profile.origin_address }}</dd></div>
-      <div class="sm:col-span-2"><dt class="text-slate-500">Emergency contact</dt>
-        <dd>{{ profile.emergency_contact.name }} ({{ profile.emergency_contact.relation }}), {{ profile.emergency_contact.phone }}</dd></div>
-    </dl>
-  {% else %}
-    <p class="mt-2 text-sm text-slate-500">The tenant hasn't filled in their profile yet.</p>
-  {% endif %}
-
-  <h2 class="mt-6 text-lg font-semibold">Documents</h2>
-  <table class="table mt-2">
-    <thead><tr><th>Type</th><th>Size</th><th>Updated</th><th>Download (each copy is checked first)</th></tr></thead>
-    <tbody>
-    {% for it in items %}
-      <tr>
-        <td>{{ it.kind.value }}</td>
-        <td>{{ '%.1f'|format(it.plain_size / 1048576) }} MB</td>
-        <td>{{ it.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
-        <td class="space-x-2">
-          {% for c in ciphers %}
-            <a class="btn-light" href="/owner/tenants/{{ tenant.id }}/documents/{{ it.kind.value }}?cipher={{ c }}">{{ c|upper }}</a>
-          {% endfor %}
-        </td>
-      </tr>
-    {% else %}
-      <tr><td colspan="4" class="text-slate-500">No documents uploaded yet.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <h1 class="mt-2 mb-4 text-xl font-semibold">{{ d.profile.full_name if d.profile else t.email }}</h1>
+  {% include "owner/_tenant_detail.html" %}
 </div>
 {% endblock %}

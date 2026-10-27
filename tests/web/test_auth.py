@@ -1,7 +1,11 @@
 """Ata. Login, roles, CSRF, inactive users, forced password change, admin account pages."""
 import inspect
+import io
+
+import pytest
 
 from app.auth.security import hash_password
+from app.crypto import vault
 from app.models import AuditLog, Role, Room, User
 from app.routes import admin as admin_routes
 from .conftest import PASSWORD
@@ -59,11 +63,46 @@ def test_roles_are_enforced(make_client, world):
         assert admin.get(url).status_code in (403, 404), url
 
 
-def test_admin_routes_never_read_documents():
-    # Crude but useful: nothing in the admin routes can decrypt. (unwrap_dek also refuses admins.)
+def test_admin_routes_read_only_the_video():
+    # Crude but useful: the admin routes' only way to decrypt is the room-video download.
     source = inspect.getsource(admin_routes)
-    for reader in ("vault", "unwrap_dek", "open_item", "verify_item", "load_bytes", "stream_document"):
+    for reader in ("import vault", "vault.", "unwrap_dek(", "open_item(", "verify_item(", "load_bytes("):
         assert reader not in source, reader
+    calls = [line.strip() for line in source.splitlines() if "stream_document(" in line and "import" not in line]
+    assert calls == ['return stream_document(db, tenant, "video", settings.read_cipher, me, inline=True)']
+
+
+def test_admin_sees_video_and_nothing_else(make_client, world, db_factory):
+    tenant = make_client()
+    tenant.login("tenant_a@test.test")
+    video = b"\x00\x00\x00\x18ftypisom" + b"VIDEO" * 100
+    ktp = b"\x89PNG\r\n\x1a\n" + b"KTP" * 100
+    tenant.submit("/tenant/documents/video", files={"file": ("v.mp4", io.BytesIO(video), "video/mp4")})
+    tenant.submit("/tenant/documents/ktp", files={"file": ("k.png", io.BytesIO(ktp), "image/png")})
+    tenant.submit("/tenant/profile", {
+        "full_name": "Budi Santoso", "nik": "3201234567890001", "birth_date": "2000-01-31",
+        "gender": "male", "phone": "081234567890", "origin_address": "Jl. Asal 1", "occupation": "Student",
+        "ec_name": "Siti", "ec_relation": "Mother", "ec_phone": "+6289876543210"})
+
+    admin = make_client()
+    admin.login("admin@test.test")
+    page = admin.get("/admin/users").text
+    assert f"/admin/users/{world.tenant_a}/video" in page
+    assert "Budi Santoso" not in page and "3201234567890001" not in page
+    r = admin.get(f"/admin/users/{world.tenant_a}/video")
+    assert r.status_code == 200 and r.content == video
+    assert r.headers["content-disposition"].startswith("inline")
+    assert admin.get(f"/admin/users/{world.owner_a}/video").status_code == 404
+
+    # The key path itself refuses the admin for anything but the video
+    with db_factory() as db:
+        t, a = db.get(User, world.tenant_a), db.get(User, world.admin)
+        vault.verify_item(t, "video", "aes", a)
+        for kind in ("ktp", "profile"):
+            with pytest.raises(PermissionError):
+                vault.verify_item(t, kind, "aes", a)
+            with pytest.raises(PermissionError):
+                vault.load_bytes(t, kind, a)
 
 
 def test_inactive_user_is_blocked_and_kicked_out(make_client, world, db_factory):

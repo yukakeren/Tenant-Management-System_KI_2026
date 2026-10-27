@@ -123,23 +123,8 @@ def unassign_tenant(request: Request, room_id: int, me: User = Depends(owner_onl
     return redirect(f"/owner/kos/{room.kos_id}/rooms")
 
 
-@router.get("/tenants")
-def list_tenants(request: Request, me: User = Depends(owner_only), db: Session = Depends(get_db)):
-    rows = db.execute(
-        select(User, Room, Kos).join(Room, Room.tenant_id == User.id).join(Kos, Room.kos_id == Kos.id)
-        .where(Kos.owner_id == me.id).order_by(Kos.name, Room.number)
-    ).all()
-    kinds: dict[int, set[str]] = {}
-    for subject_id, kind in db.execute(select(SecretItem.subject_id, SecretItem.kind).where(
-            SecretItem.subject_id.in_([u.id for u, _, _ in rows]))):
-        kinds.setdefault(subject_id, set()).add(kind.value)
-    return render(request, "owner/tenants.html", rows=rows, kinds=kinds)
-
-
-@router.get("/tenants/{tenant_id}")
-def show_tenant(request: Request, tenant_id: int, me: User = Depends(owner_only),
-                db: Session = Depends(get_db)):
-    tenant = get_owned_tenant_or_404(db, me, tenant_id)
+def _tenant_detail(db: Session, me: User, tenant: User) -> dict:
+    """Decrypted profile + document list for one tenant the owner already has access to."""
     profile, profile_error = None, None
     try:
         data = vault.load_bytes(tenant, "profile", me)
@@ -151,15 +136,35 @@ def show_tenant(request: Request, tenant_id: int, me: User = Depends(owner_only)
         raise HTTPException(404, "Tenant not found.") from None
     items = db.scalars(select(SecretItem).where(SecretItem.subject_id == tenant.id,
                                                 SecretItem.kind != ItemKind.profile)).all()
-    return render(request, "owner/tenant.html", tenant=tenant, profile=profile,
-                  profile_error=profile_error, items=items, ciphers=CIPHERS)
+    return {"profile": profile, "profile_error": profile_error,
+            "items": {it.kind.value: it for it in items}}
+
+
+@router.get("/tenants")
+def list_tenants(request: Request, me: User = Depends(owner_only), db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(User, Room, Kos).join(Room, Room.tenant_id == User.id).join(Kos, Room.kos_id == Kos.id)
+        .where(Kos.owner_id == me.id).order_by(Kos.name, Room.number)
+    ).all()
+    # shortcut: decrypts every tenant's profile (a few KB each) on each visit; page or lazy-load past ~100 tenants
+    details = {t.id: _tenant_detail(db, me, t) for t, _, _ in rows}
+    return render(request, "owner/tenants.html", rows=rows, details=details, ciphers=CIPHERS)
+
+
+@router.get("/tenants/{tenant_id}")
+def show_tenant(request: Request, tenant_id: int, me: User = Depends(owner_only),
+                db: Session = Depends(get_db)):
+    tenant = get_owned_tenant_or_404(db, me, tenant_id)
+    return render(request, "owner/tenant.html", t=tenant, d=_tenant_detail(db, me, tenant),
+                  ciphers=CIPHERS)
 
 
 @router.get("/tenants/{tenant_id}/documents/{kind}")
 def download_document(tenant_id: int, kind: str, cipher: str = settings.read_cipher,
-                      me: User = Depends(owner_only), db: Session = Depends(get_db)):
+                      inline: bool = False, me: User = Depends(owner_only),
+                      db: Session = Depends(get_db)):
     tenant = get_owned_tenant_or_404(db, me, tenant_id)
-    return stream_document(db, tenant, kind, cipher, me)
+    return stream_document(db, tenant, kind, cipher, me, inline=inline)
 
 
 @router.get("/deletion-requests")

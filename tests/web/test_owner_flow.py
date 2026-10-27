@@ -104,6 +104,24 @@ def test_owner_sees_profile(clients, world):
     assert "Budi Santoso" in page and "3201234567890001" in page
 
 
+def test_tenant_list_expands_to_details_and_previews(clients, world):
+    owner_a, _, tenant_a = clients
+    upload_ktp(tenant_a)
+    tenant_a.submit("/tenant/profile", {
+        "full_name": "Budi Santoso", "nik": "3201234567890001", "birth_date": "2000-01-31",
+        "gender": "male", "phone": "081234567890", "origin_address": "Jl. Asal 1", "occupation": "Student",
+        "ec_name": "Siti", "ec_relation": "Mother", "ec_phone": "+6289876543210"})
+    page = owner_a.get("/owner/tenants").text
+    assert f'data-toggle="detail-{world.tenant_a}"' in page and f'id="detail-{world.tenant_a}"' in page
+    assert "Budi Santoso" in page and "3201234567890001" in page and "Siti" in page
+    assert f'<img src="/owner/tenants/{world.tenant_a}/documents/ktp?inline=true"' in page
+
+    preview = owner_a.get(f"/owner/tenants/{world.tenant_a}/documents/ktp?inline=true")
+    assert preview.content == PNG and preview.headers["content-disposition"].startswith("inline")
+    download = owner_a.get(f"/owner/tenants/{world.tenant_a}/documents/ktp")
+    assert download.headers["content-disposition"].startswith("attachment")
+
+
 def test_tampered_copy_gives_409_and_audit(clients, world, db_factory):
     owner_a, _, tenant_a = clients
     upload_ktp(tenant_a)

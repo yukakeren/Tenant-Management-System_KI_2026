@@ -13,9 +13,13 @@ from app.models import ItemKind, SecretItem, User
 from app.services import audit
 
 DOC_KINDS = ("ktp", "agreement", "video")
+# Shown in the page (img, video, PDF tab) instead of downloaded. Uploads are checked by magic
+# bytes, so these can't be HTML; anything else is always sent as an attachment.
+INLINE_MIMES = {"image/jpeg", "image/png", "application/pdf", "video/mp4", "video/webm", "video/quicktime"}
 
 
-def stream_document(db: Session, subject: User, kind: str, cipher: str, actor: User) -> StreamingResponse:
+def stream_document(db: Session, subject: User, kind: str, cipher: str, actor: User,
+                    inline: bool = False) -> StreamingResponse:
     """Caller must already have checked that actor may see subject (404 otherwise)."""
     if kind not in DOC_KINDS or cipher not in CIPHERS:
         raise HTTPException(404, "Document not found.")
@@ -36,5 +40,6 @@ def stream_document(db: Session, subject: User, kind: str, cipher: str, actor: U
                                  "check and was not returned. It may have been tampered with.") from None
     audit.log(db, actor, "download", "user", subject.id, detail=f"{kind}/{cipher}")
     filename = kind + (mimetypes.guess_extension(item.mime) or "")
+    disposition = "inline" if inline and item.mime in INLINE_MIMES else "attachment"
     return StreamingResponse(chunks, media_type=item.mime,
-                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+                             headers={"Content-Disposition": f'{disposition}; filename="{filename}"'})

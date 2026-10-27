@@ -12,7 +12,7 @@ Three roles:
 |------|-------------|--------|
 | Tenant | Data subject | Fill in profile and emergency contact, upload KTP / agreement / room video, download own documents, request deletion |
 | Owner (exactly one) | Data controller | Manage kos and rooms, move tenants out, read documents of current tenants only, decide deletion requests |
-| Admin | Operator | Create accounts (a tenant only together with the room they paid for), deactivate accounts, reset passwords, read the audit log, decide deletion requests that have no owner. Can never decrypt anything |
+| Admin | Operator | Create accounts (a tenant only together with the room they paid for), deactivate accounts, reset passwords, read the audit log, decide deletion requests that have no owner, play a tenant's room video. Cannot open profiles, KTPs or agreements |
 
 Stack: FastAPI with server-rendered Jinja templates, SQLite through SQLAlchemy, PyCryptodome for the ciphers, argon2id for passwords.
 
@@ -40,7 +40,7 @@ user DEK  (32 random bytes per tenant, stored wrapped in users.wrapped_dek)
    └── RC4 MAC key   = HKDF(DEK, file nonce, "kosanku/rc4/mac/v1")
 ```
 
-The only way to get a DEK is `keys.unwrap_dek(subject, actor)`, which first asks `access.can_view_subject`. Admins always get `PermissionError`. Changing a password doesn't touch the DEK, so an admin password reset doesn't open any documents.
+The only way to get a DEK is `keys.unwrap_dek(subject, actor)`, which first asks `access.can_view_subject`. Admins get `PermissionError` for everything except the room video. Changing a password doesn't touch the DEK, so an admin password reset doesn't open any documents.
 
 Every item (profile, KTP, agreement, video) is stored three times, once per cipher. Each copy decrypts on its own. The upload reads the file once and feeds every 1 MiB chunk to all three ciphers.
 
@@ -116,7 +116,7 @@ Over HTTP, a tampered copy gives a 409 page and an audit-log row with `ok=False`
 
 - Tenant: only themselves. Tenant routes have no ids in the URL; they always use the logged-in user.
 - Owner: only tenants currently in a room of one of their kos. The filter is in the SQL query (`Kos.owner_id == me.id`), not a check after loading, so a forgotten check returns nothing instead of leaking.
-- Admin: never. Enforced in `unwrap_dek`, not only by hiding buttons.
+- Admin: the room video only. Enforced in `unwrap_dek` (it unwraps for an admin only when the document is the video), not only by hiding buttons. The limit is in code, not in the key: the DEK itself opens every file.
 - Another owner's ids give 404, not 403, so you can't probe which ids exist.
 - Moving a tenant out ends the owner's access immediately; the tenant's data stays so they can still ask for deletion.
 
@@ -128,8 +128,8 @@ Test results (all passing):
 |------|--------|
 | `tests/web/test_access.py` | The access service: owner A vs owner B, admin always denied, unassigned tenants |
 | `tests/web/test_owner_flow.py` | Over HTTP: owner A gets 404 on owner B's kos, rooms, tenants, documents and deletion requests; download of each copy; move-out ends access |
-| `tests/web/test_auth.py` | Login, same error for wrong email and wrong password, rate limit, CSRF, roles, inactive users, forced password change, admin can't reach tenant data by any URL, admin routes don't contain any decrypting call |
-| `tests/crypto/test_keys.py` | Swapping `wrapped_dek` between users fails, admin always gets `PermissionError` |
+| `tests/web/test_auth.py` | Login, same error for wrong email and wrong password, rate limit, CSRF, roles, inactive users, forced password change, admin plays the room video but gets `PermissionError` for the profile and KTP, admin routes' only decrypting call is the video download |
+| `tests/crypto/test_keys.py` | Swapping `wrapped_dek` between users fails, admin without a document kind gets `PermissionError` |
 
 ## 7. UU PDP 
 

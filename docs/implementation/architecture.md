@@ -112,7 +112,7 @@ user DEK     32 random bytes per tenant, saved as users.wrapped_dek
 ```
 
 - Only `crypto/keys.py` reads `MASTER_KEY`.
-- `keys.unwrap_dek(subject, actor)` is the only way to get a DEK, and it checks who's asking first. Either it's the tenant themselves, or an owner whose kos the tenant lives in. Admin always gets `PermissionError`. That's how "admin can't decrypt documents" is enforced in the code, not just by hiding a button.
+- `keys.unwrap_dek(subject, actor)` is the only way to get a DEK, and it checks who's asking first. Either it's the tenant themselves, or an owner whose kos the tenant lives in. The admin gets the DEK only when the document asked for is the room video (`unwrap_dek(subject, actor, kind="video")`), through `GET /admin/users/{id}/video`; for the profile, KTP and agreement the admin gets `PermissionError`. This limit is enforced in code: the DEK itself could open every file, so a bug in that path would expose more than the video.
 - Limitation for the report: anyone with access to the server and the `.env` file can decrypt everything. We're not trying to protect against a hacked server this week.
 
 ## Main flows
@@ -133,7 +133,7 @@ user:   first login -> sent to /account/password until they set their own passwo
 
 A person pays for a room first and only then gets a login, so a tenant always starts in a room. The owner can move a tenant out; after that the tenant has no room but keeps their data until a deletion request is approved.
 
-We never save the temporary password in plain text or put it in the audit log. Once the user changes it, the admin doesn't know any working password. The admin can reset a password, but that doesn't open the documents: the DEK is wrapped with `MASTER_KEY`, not the password. So documents survive a reset and the admin still can't unwrap them.
+We never save the temporary password in plain text or put it in the audit log. Once the user changes it, the admin doesn't know any working password. The admin can reset a password, but that doesn't open the documents: the DEK is wrapped with `MASTER_KEY`, not the password. So documents survive a reset, and a reset gives the admin no more access than before.
 
 ### Uploading (tenant uploads KTP or video)
 
@@ -185,7 +185,7 @@ admin:  POST /admin/deletion-requests/{id}/approve
           (the tenant had no room when asking, so there is no owner to decide)
 ```
 
-The request saves `owner_id` when it's made, so the owner can still approve it after moving the tenant out. Approving never unwraps the key, so the admin deciding a request still can't read anything.
+The request saves `owner_id` when it's made, so the owner can still approve it after moving the tenant out. Approving never unwraps the key, so deciding a request doesn't let the admin read anything.
 
 Even if a copy of a file survives somewhere (a backup, for example), nobody can decrypt it once the key is gone. This is called crypto-shredding.
 

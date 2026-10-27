@@ -34,11 +34,12 @@ def create_dek(user: User) -> None:
     user.wrapped_dek = nonce + ct + tag
 
 
-def unwrap_dek(subject: User, actor: User) -> bytes:
-    """Authorize before decrypting. Admin is never allowed to unwrap a DEK."""
-    if (subject.role != Role.tenant or actor.role == Role.admin
-            or not can_view_subject(actor, subject)
-            or not subject.wrapped_dek):
+def unwrap_dek(subject: User, actor: User, kind: str | None = None) -> bytes:
+    """Authorize before decrypting. Admin may unwrap only to read a room video (kind="video");
+    that limit is enforced here and in the vault, not by the key itself."""
+    admin_video = actor.role == Role.admin and kind == "video"
+    allowed = admin_video or (actor.role != Role.admin and can_view_subject(actor, subject))
+    if subject.role != Role.tenant or not allowed or not subject.wrapped_dek:
         raise PermissionError("not authorized")
     blob = subject.wrapped_dek
     if len(blob) != 60:

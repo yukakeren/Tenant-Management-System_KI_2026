@@ -1,7 +1,7 @@
-"""Admin: accounts, audit log, and deletion requests that have no owner.
+"""Admin: accounts, audit log, deletion requests that have no owner, and room videos.
 
-Deliberately has no route that reads documents. Approving a deletion shreds files and the
-key without ever unwrapping it.
+The room video is the only document an admin can open; profiles, KTPs and agreements stay
+out of reach. Approving a deletion shreds files and the key without unwrapping it.
 """
 import secrets
 
@@ -14,8 +14,10 @@ from app.auth.deps import require_role
 from app.auth.security import csrf_protect, hash_password
 from app.crypto.keys import create_dek
 from app.db import get_db
-from app.models import AuditLog, DeletionRequest, Kos, Role, Room, User
+from app.config import settings
+from app.models import AuditLog, DeletionRequest, Kos, Role, Room, SecretItem, User
 from app.services import audit, deletion
+from app.services.documents import stream_document
 from app.web import flash, redirect, render
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(csrf_protect)])
@@ -27,8 +29,11 @@ def _users_page(request: Request, db: Session, **extra):
     empty_rooms = db.execute(select(Room, Kos).join(Kos, Room.kos_id == Kos.id)
                              .where(Room.tenant_id.is_(None)).order_by(Kos.name, Room.number)).all()
     has_owner = any(u.role == Role.owner for u in users)
+    items: dict[int, dict[str, SecretItem]] = {}  # metadata only: kind, size, dates
+    for it in db.scalars(select(SecretItem)):
+        items.setdefault(it.subject_id, {})[it.kind.value] = it
     return render(request, "admin/users.html", users=users, empty_rooms=empty_rooms,
-                  has_owner=has_owner, **extra)
+                  has_owner=has_owner, items=items, **extra)
 
 
 def _refuse(request: Request, msg: str):
@@ -86,6 +91,16 @@ def create_user(request: Request, email: str = Form(...), role: str = Form(...),
     audit.log(db, me, "create_user", "user", user.id, detail=role)
     # Shown once in this response, never stored or logged
     return _users_page(request, db, temp_password=(email, temp))
+
+
+@router.get("/users/{user_id}/video")
+def room_video(user_id: int, me: User = Depends(admin_only), db: Session = Depends(get_db)):
+    """The one document an admin may see: the room video. keys.unwrap_dek allows the admin
+    only for kind="video", so every other document stays out of reach."""
+    tenant = db.get(User, user_id)
+    if tenant is None or tenant.role != Role.tenant:
+        raise HTTPException(404, "Tenant not found.")
+    return stream_document(db, tenant, "video", settings.read_cipher, me, inline=True)
 
 
 @router.post("/users/{user_id}/reset-password")

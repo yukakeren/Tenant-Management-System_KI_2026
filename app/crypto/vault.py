@@ -148,7 +148,7 @@ def store_bytes(subject: User, kind: ItemKind | str, data: bytes,
 
 
 def _read_target(subject: User, kind: ItemKind | str, cipher: str, actor: User):
-    dek = unwrap_dek(subject, actor)
+    dek = unwrap_dek(subject, actor, _kind(kind).value)
     item = _get_item(subject, kind)
     if item is None:
         raise FileNotFoundError("encrypted document not found")
@@ -179,7 +179,7 @@ def load_bytes(subject: User, kind: ItemKind | str, actor: User,
                cipher: str | None = None) -> bytes | None:
     if _get_item(subject, kind) is None:
         # Still authorize to avoid letting callers probe the existence of items.
-        unwrap_dek(subject, actor)
+        unwrap_dek(subject, actor, _kind(kind).value)
         return None
     selected = cipher or settings.read_cipher
     verify_item(subject, kind, selected, actor)
