@@ -79,19 +79,55 @@ def test_deletion_request_goes_to_owner(tenant, world, db_factory):
     assert "pending" in tenant.get("/tenant/deletion-request").text
 
 
-def test_deletion_without_owner_is_immediate(make_client, world, db_factory, tmp_path):
+def test_deletion_without_owner_waits_for_admin(make_client, world, db_factory, tmp_path):
     c = make_client()
     c.login("free@test.test")
     upload(c, "ktp", "ktp.png", b"\x89PNG\r\n\x1a\nfree", "image/png")
-    r = c.submit("/tenant/deletion-request")
-    assert r.headers["location"] == "/login"
+    c.submit("/tenant/deletion-request", {"reason": "moved out"})
+    assert "Waiting for the admin" in c.get("/tenant/deletion-request").text
+    assert (tmp_path / str(world.free)).exists()  # nothing deleted yet
+    with db_factory() as db:
+        req = db.scalars(select(DeletionRequest)).one()
+        assert req.owner_id is None and req.status == DeletionStatus.pending
+
+    owner = make_client()
+    owner.login("owner_a@test.test")
+    assert owner.get(f"/owner/deletion-requests/{req.id}/approve").status_code == 404
+
+    admin = make_client()
+    admin.login("admin@test.test")
+    assert "free@test.test" in admin.get("/admin/deletion-requests").text
+    assert "Type <code" in admin.get(f"/admin/deletion-requests/{req.id}/approve").text
+    admin.submit(f"/admin/deletion-requests/{req.id}/approve", {"confirm": "wrong"})
+    assert (tmp_path / str(world.free)).exists()
+    r = admin.submit(f"/admin/deletion-requests/{req.id}/approve", {"confirm": "free@test.test"})
+    assert r.status_code == 303
     assert not (tmp_path / str(world.free)).exists()
     with db_factory() as db:
         user = db.get(User, world.free)
         assert user.wrapped_dek is None and not user.is_active
-        assert db.scalars(select(DeletionRequest)).one().status == DeletionStatus.done
+        req = db.get(DeletionRequest, req.id)
+        assert req.status == DeletionStatus.done and req.decided_by == world.admin
     assert c.post("/login", data={"email": "free@test.test", "password": PASSWORD,
                                   "csrf": c.csrf("/login")}).status_code == 400
+
+
+def test_admin_rejects_ownerless_request_and_cannot_touch_owned_ones(make_client, world, db_factory):
+    free, tenant_a, admin = make_client(), make_client(), make_client()
+    free.login("free@test.test")
+    tenant_a.login("tenant_a@test.test")
+    admin.login("admin@test.test")
+    free.submit("/tenant/deletion-request")
+    tenant_a.submit("/tenant/deletion-request")
+    with db_factory() as db:
+        ids = {r.tenant_id: r.id for r in db.scalars(select(DeletionRequest))}
+    owned = ids[world.tenant_a]
+    assert admin.get(f"/admin/deletion-requests/{owned}/approve").status_code == 404
+    assert admin.submit(f"/admin/deletion-requests/{owned}/approve", {"confirm": "101"}).status_code == 404
+    assert "tenant_a@test.test" not in admin.get("/admin/deletion-requests").text
+
+    admin.submit(f"/admin/deletion-requests/{ids[world.free]}/reject", {"reason": "Unpaid deposit"})
+    assert "Unpaid deposit" in free.get("/tenant/deletion-request").text
 
 
 @pytest.mark.slow

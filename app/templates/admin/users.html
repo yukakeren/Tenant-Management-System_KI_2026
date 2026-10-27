@@ -21,11 +21,24 @@
       <label class="label" for="role">Role</label>
       <select class="input" id="role" name="role">
         <option value="tenant">Tenant</option>
-        <option value="owner">Owner</option>
+        {% if not has_owner %}<option value="owner">Owner</option>{% endif %}
+      </select>
+    </div>
+    <div>
+      <label class="label" for="room_id">Room (tenants only)</label>
+      <select class="input" id="room_id" name="room_id">
+        <option value="">–</option>
+        {% for room, kos in empty_rooms %}
+          <option value="{{ room.id }}">{{ kos.name }} / {{ room.number }}</option>
+        {% endfor %}
       </select>
     </div>
     <button class="btn">Create</button>
   </form>
+  <p class="mt-2 text-xs text-slate-500">
+    Create a tenant's account once they've paid for a room; it's placed in that room right away.
+    {% if not empty_rooms %}There are no empty rooms right now.{% endif %}
+  </p>
 </div>
 
 <div class="card mt-6 overflow-x-auto">

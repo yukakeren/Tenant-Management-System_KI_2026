@@ -5,7 +5,7 @@ Every route works on the logged-in tenant only, so there are no ids in the URLs.
 
 import json
 import re
-from datetime import date, datetime, timezone
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import select
@@ -155,16 +155,7 @@ def request_deletion(request: Request, reason: str = Form(""),
     db.add(req)
     db.commit()
     audit.log(db, user, "request_deletion", "user", user.id)
-    if req.owner_id is not None:
-        flash(request, "ok", "Request sent. Your kos owner has to approve it.")
-        return redirect("/tenant/deletion-request")
-    # Moved out and nobody to approve: approved automatically
-    vault.shred_user(user, user)
-    user.is_active = False
-    req.decided_by = user.id
-    req.decided_at = datetime.now(timezone.utc)
-    db.commit()
-    audit.log(db, user, "approve_deletion", "user", user.id, detail="auto, no owner")
-    request.session.clear()
-    flash(request, "ok", "All your documents and your key were deleted, and your account was closed.")
-    return redirect("/login")
+    # No room means no owner, so the admin reviews it instead
+    who = "your kos owner" if req.owner_id is not None else "the admin"
+    flash(request, "ok", f"Request sent. It will be deleted once {who} approves it.")
+    return redirect("/tenant/deletion-request")

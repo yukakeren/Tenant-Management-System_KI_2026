@@ -3,7 +3,6 @@
 Every lookup goes through the get_owned_*_or_404 helpers, so another owner's ids give 404.
 """
 import json
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from sqlalchemy import select
@@ -16,8 +15,8 @@ from app.config import CIPHERS, settings
 from app.crypto import vault
 from app.crypto.base import IntegrityError
 from app.db import get_db
-from app.models import DeletionRequest, DeletionStatus, ItemKind, Kos, Role, Room, SecretItem, User
-from app.services import audit
+from app.models import DeletionRequest, ItemKind, Kos, Role, Room, SecretItem, User
+from app.services import audit, deletion
 from app.services.access import (
     get_owned_deletion_request_or_404, get_owned_kos_or_404, get_owned_room_or_404,
     get_owned_tenant_or_404,
@@ -35,18 +34,51 @@ def list_kos(request: Request, me: User = Depends(owner_only), db: Session = Dep
     return render(request, "owner/kos.html", kos_list=kos_list)
 
 
+def _kos_fields_ok(request: Request, name: str, address: str) -> bool:
+    if not name or not address or len(name) > 120 or len(address) > 255:
+        flash(request, "err", "Name (max 120) and address (max 255) are required.")
+        return False
+    return True
+
+
 @router.post("/kos")
 def create_kos(request: Request, name: str = Form(...), address: str = Form(...),
                me: User = Depends(owner_only), db: Session = Depends(get_db)):
     name, address = name.strip(), address.strip()
-    if not name or not address or len(name) > 120 or len(address) > 255:
-        flash(request, "err", "Name (max 120) and address (max 255) are required.")
+    if not _kos_fields_ok(request, name, address):
         return redirect("/owner/kos")
     kos = Kos(owner_id=me.id, name=name, address=address)
     db.add(kos)
     db.commit()
     audit.log(db, me, "create_kos", "kos", kos.id)
     flash(request, "ok", f"Added {name}.")
+    return redirect("/owner/kos")
+
+
+@router.post("/kos/{kos_id}/edit")
+def edit_kos(request: Request, kos_id: int, name: str = Form(...), address: str = Form(...),
+             me: User = Depends(owner_only), db: Session = Depends(get_db)):
+    kos = get_owned_kos_or_404(db, me, kos_id)
+    name, address = name.strip(), address.strip()
+    if _kos_fields_ok(request, name, address):
+        kos.name, kos.address = name, address
+        db.commit()
+        audit.log(db, me, "edit_kos", "kos", kos.id)
+        flash(request, "ok", "Kos updated.")
+    return redirect(f"/owner/kos/{kos.id}/rooms")
+
+
+@router.post("/kos/{kos_id}/delete")
+def delete_kos(request: Request, kos_id: int, me: User = Depends(owner_only),
+               db: Session = Depends(get_db)):
+    kos = get_owned_kos_or_404(db, me, kos_id)
+    if any(r.tenant_id is not None for r in kos.rooms):
+        flash(request, "err", "Move all tenants out before deleting this kos.")
+        return redirect(f"/owner/kos/{kos.id}/rooms")
+    db.delete(kos)  # its rooms go with it
+    db.commit()
+    audit.log(db, me, "delete_kos", "kos", kos_id)
+    flash(request, "ok", f"Deleted {kos.name}.")
     return redirect("/owner/kos")
 
 
@@ -77,34 +109,6 @@ def create_room(request: Request, kos_id: int, number: str = Form(...),
     audit.log(db, me, "create_room", "room", room.id)
     flash(request, "ok", f"Added room {number}.")
     return redirect(f"/owner/kos/{kos.id}/rooms")
-
-
-@router.post("/rooms/{room_id}/assign")
-def assign_tenant(request: Request, room_id: int, email: str = Form(...),
-                  me: User = Depends(owner_only), db: Session = Depends(get_db)):
-    room = get_owned_room_or_404(db, me, room_id)
-    back = f"/owner/kos/{room.kos_id}/rooms"
-    if room.tenant_id is not None:
-        flash(request, "err", f"Room {room.number} already has a tenant.")
-        return redirect(back)
-    tenant = db.scalar(select(User).where(User.email == email.strip().lower(),
-                                          User.role == Role.tenant, User.is_active.is_(True)))
-    if tenant is None:
-        flash(request, "err", "No active tenant account with that email. Ask the admin to create it.")
-        return redirect(back)
-    if tenant.room is not None:
-        flash(request, "err", "That tenant already has a room.")
-        return redirect(back)
-    room.tenant_id = tenant.id
-    try:
-        db.commit()
-    except DBIntegrityError:  # someone assigned them at the same moment
-        db.rollback()
-        flash(request, "err", "That tenant already has a room.")
-        return redirect(back)
-    audit.log(db, me, "assign_tenant", "room", room.id)
-    flash(request, "ok", f"Assigned {tenant.email} to room {room.number}.")
-    return redirect(back)
 
 
 @router.post("/rooms/{room_id}/unassign")
@@ -165,65 +169,44 @@ def list_deletion_requests(request: Request, me: User = Depends(owner_only),
         select(DeletionRequest, User).join(User, User.id == DeletionRequest.tenant_id)
         .where(DeletionRequest.owner_id == me.id).order_by(DeletionRequest.id.desc())
     ).all()
-    return render(request, "owner/deletion_requests.html", rows=rows)
+    return render(request, "deletion_requests.html", rows=rows, base=BASE)
+
+
+BASE = "/owner/deletion-requests"
 
 
 def _pending_request(db: Session, me: User, request_id: int) -> tuple[DeletionRequest, User]:
     req = get_owned_deletion_request_or_404(db, me, request_id)
-    if req.status != DeletionStatus.pending:
-        raise HTTPException(400, "This request has already been decided.")
-    return req, db.get(User, req.tenant_id)
-
-
-def _confirm_word(tenant: User) -> str:
-    # Typed back by the owner before an irreversible shred
-    return tenant.room.number if tenant.room else tenant.email
+    return req, deletion.tenant_of_pending(db, req)
 
 
 @router.get("/deletion-requests/{request_id}/approve")
 def confirm_approve(request: Request, request_id: int, me: User = Depends(owner_only),
                     db: Session = Depends(get_db)):
     req, tenant = _pending_request(db, me, request_id)
-    return render(request, "owner/confirm_approve.html", req=req, tenant=tenant,
-                  confirm_word=_confirm_word(tenant))
+    return render(request, "confirm_deletion.html", req=req, tenant=tenant, base=BASE,
+                  confirm_word=deletion.confirm_word(tenant))
 
 
 @router.post("/deletion-requests/{request_id}/approve")
 def approve_deletion(request: Request, request_id: int, confirm: str = Form(""),
                      me: User = Depends(owner_only), db: Session = Depends(get_db)):
     req, tenant = _pending_request(db, me, request_id)
-    if confirm.strip() != _confirm_word(tenant):
+    if confirm.strip() != deletion.confirm_word(tenant):
         flash(request, "err", "The confirmation didn't match. Nothing was deleted.")
-        return redirect(f"/owner/deletion-requests/{req.id}/approve")
-    room = tenant.room
-    try:
-        vault.shred_user(tenant, me)  # deletes files and DEK, marks the request done, commits
-    except PermissionError:
-        raise HTTPException(404, "Deletion request not found.") from None
-    if room is not None:
-        room.tenant_id = None
-    tenant.is_active = False
-    req.decided_by = me.id
-    req.decided_at = datetime.now(timezone.utc)
-    db.commit()
-    audit.log(db, me, "approve_deletion", "user", tenant.id)
+        return redirect(f"{BASE}/{req.id}/approve")
+    deletion.approve(db, req, tenant, me)
     flash(request, "ok", f"All of {tenant.email}'s documents and their key were deleted.")
-    return redirect("/owner/deletion-requests")
+    return redirect(BASE)
 
 
 @router.post("/deletion-requests/{request_id}/reject")
 def reject_deletion(request: Request, request_id: int, reason: str = Form(""),
                     me: User = Depends(owner_only), db: Session = Depends(get_db)):
     req, tenant = _pending_request(db, me, request_id)
-    reason = reason.strip()
-    if not reason:
+    if not reason.strip():
         flash(request, "err", "Give a reason so the tenant knows why.")
-        return redirect("/owner/deletion-requests")
-    req.status = DeletionStatus.rejected
-    req.reject_reason = reason[:1000]
-    req.decided_by = me.id
-    req.decided_at = datetime.now(timezone.utc)
-    db.commit()
-    audit.log(db, me, "reject_deletion", "user", tenant.id)
+        return redirect(BASE)
+    deletion.reject(db, req, tenant, me, reason.strip())
     flash(request, "ok", "Request rejected.")
-    return redirect("/owner/deletion-requests")
+    return redirect(BASE)

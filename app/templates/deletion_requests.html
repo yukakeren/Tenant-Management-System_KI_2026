@@ -3,6 +3,9 @@
 {% block content %}
 <div class="card overflow-x-auto">
   <h1 class="text-xl font-semibold">Deletion requests</h1>
+  {% if user.role.value == 'admin' %}
+    <p class="mt-1 text-sm text-slate-500">Requests from tenants who had no room (and so no owner) when they asked. Approving deletes their files and key; it never shows you their contents.</p>
+  {% endif %}
   <table class="table mt-4">
     <thead><tr><th>Tenant</th><th>Requested</th><th>Reason</th><th>Status</th><th></th></tr></thead>
     <tbody>
@@ -14,8 +17,8 @@
         <td><span class="badge">{{ req.status.value }}</span>{% if req.reject_reason %}<div class="text-xs text-slate-500">{{ req.reject_reason }}</div>{% endif %}</td>
         <td class="text-right">
           {% if req.status.value == 'pending' %}
-            <a href="/owner/deletion-requests/{{ req.id }}/approve" class="btn-danger">Approve…</a>
-            <form method="post" action="/owner/deletion-requests/{{ req.id }}/reject" class="mt-2 flex gap-2">
+            <a href="{{ base }}/{{ req.id }}/approve" class="btn-danger">Approve…</a>
+            <form method="post" action="{{ base }}/{{ req.id }}/reject" class="mt-2 flex gap-2">
               <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
               <input class="input" name="reason" placeholder="Reason for rejecting" required>
               <button class="btn-light">Reject</button>

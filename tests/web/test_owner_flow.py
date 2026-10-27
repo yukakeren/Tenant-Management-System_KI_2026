@@ -4,7 +4,7 @@ import io
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, DeletionRequest, DeletionStatus, Room, SecretBlob, User
+from app.models import AuditLog, DeletionRequest, DeletionStatus, Kos, Room, SecretBlob, User
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"KTP-BYTES" * 100
 
@@ -29,7 +29,7 @@ def request_deletion(tenant, db_factory, tenant_id):
         return db.scalar(select(DeletionRequest.id).where(DeletionRequest.tenant_id == tenant_id))
 
 
-def test_kos_rooms_and_assign(clients, world, db_factory):
+def test_kos_and_rooms(clients, world, db_factory):
     owner_a, _, _ = clients
     assert owner_a.submit("/owner/kos", {"name": "Kos C", "address": "Jl. C"}).status_code == 303
     assert "Kos C" in owner_a.get("/owner/kos").text
@@ -37,16 +37,30 @@ def test_kos_rooms_and_assign(clients, world, db_factory):
     owner_a.submit(f"/owner/kos/{world.kos_a}/rooms", {"number": "103"})  # duplicate is refused
     with db_factory() as db:
         assert db.query(Room).filter_by(kos_id=world.kos_a, number="103").count() == 1
+    assert "tenant_a@test.test" in owner_a.get("/owner/tenants").text
+    # Tenants are placed in rooms by the admin, not by the owner
+    assert owner_a.submit(f"/owner/rooms/{world.room_a_empty}/assign",
+                          {"email": "free@test.test"}).status_code in (404, 405)
 
-    owner_a.submit(f"/owner/rooms/{world.room_a_empty}/assign", {"email": "free@test.test"})
-    assert "free@test.test" in owner_a.get("/owner/tenants").text
-    # tenant_b already has a room in kos B
-    owner_a.submit(f"/owner/kos/{world.kos_a}/rooms", {"number": "104"})
+
+def test_edit_and_delete_kos(clients, world, db_factory):
+    owner_a, owner_b, _ = clients
+    owner_a.submit(f"/owner/kos/{world.kos_a}/edit", {"name": "Kos A Baru", "address": "Jl. Baru"})
+    owner_a.submit(f"/owner/kos/{world.kos_a}/edit", {"name": "", "address": "Jl. Kosong"})  # refused
     with db_factory() as db:
-        room_104 = db.query(Room).filter_by(kos_id=world.kos_a, number="104").one().id
-    owner_a.submit(f"/owner/rooms/{room_104}/assign", {"email": "tenant_b@test.test"})
+        kos = db.get(Kos, world.kos_a)
+        assert (kos.name, kos.address) == ("Kos A Baru", "Jl. Baru")
+
+    # Kos A has a tenant: can't delete until they move out
+    owner_a.submit(f"/owner/kos/{world.kos_a}/delete")
     with db_factory() as db:
-        assert db.get(Room, room_104).tenant_id is None
+        assert db.get(Kos, world.kos_a) is not None
+    owner_a.submit(f"/owner/rooms/{world.room_a}/unassign")
+    assert owner_a.submit(f"/owner/kos/{world.kos_a}/delete").headers["location"] == "/owner/kos"
+    with db_factory() as db:
+        assert db.get(Kos, world.kos_a) is None
+        assert db.query(Room).filter_by(kos_id=world.kos_a).count() == 0
+        assert db.get(User, world.tenant_a).wrapped_dek is not None  # tenant's data untouched
 
 
 def test_owner_cannot_use_other_owners_ids(clients, world, db_factory, make_client):
@@ -57,9 +71,10 @@ def test_owner_cannot_use_other_owners_ids(clients, world, db_factory, make_clie
     req_b = request_deletion(tenant_b, db_factory, world.tenant_b)
 
     assert owner_a.get(f"/owner/kos/{world.kos_b}/rooms").status_code == 404
+    assert owner_a.submit(f"/owner/kos/{world.kos_b}/edit", {"name": "X", "address": "Y"}).status_code == 404
+    assert owner_a.submit(f"/owner/kos/{world.kos_b}/delete").status_code == 404
     assert owner_a.submit(f"/owner/kos/{world.kos_b}/rooms", {"number": "X"}).status_code == 404
     assert owner_a.submit(f"/owner/rooms/{world.room_b}/unassign").status_code == 404
-    assert owner_a.submit(f"/owner/rooms/{world.room_b}/assign", {"email": "free@test.test"}).status_code == 404
     assert owner_a.get(f"/owner/tenants/{world.tenant_b}").status_code == 404
     assert owner_a.get(f"/owner/tenants/{world.tenant_b}/documents/ktp").status_code == 404
     assert owner_a.get(f"/owner/deletion-requests/{req_b}/approve").status_code == 404

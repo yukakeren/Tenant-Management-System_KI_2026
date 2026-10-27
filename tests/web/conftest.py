@@ -65,7 +65,7 @@ def make_client(db_factory):
 
 @pytest.fixture
 def world(db_factory):
-    """Admin; owner A with tenant A in room 101; owner B with tenant B in room B1; a roomless tenant."""
+    """Admin; owner A with tenant A in room 101; owner B with tenant B in room B1; a tenant who has moved out (no room)."""
     with db_factory() as db:
         def user(email, role, **kw):
             u = User(email=email, password_hash=security.hash_password(PASSWORD), role=role,

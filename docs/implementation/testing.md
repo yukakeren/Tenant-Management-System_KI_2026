@@ -12,6 +12,9 @@
 | Login | `test_auth.py` | Ata | Login, roles, CSRF on every POST, inactive users blocked, forced password change |
 | Access | `test_access.py` | Melvan | Owner A can't use owner B's ids, admin can't open tenant or owner routes |
 | Tenant flow | `test_tenant_flow.py` | Ajil | Upload checks, edge sizes over HTTP, re-uploading |
+| Owner flow | `test_owner_flow.py` | Melvan | Kos edit/delete, owner A gets 404 on owner B's ids over HTTP, downloads, tampering gives 409, deletion |
+| Tamper checklist | `test_tamper_checklist.py` | Naura | Every row of the checklist below, per cipher |
+| Memory | `test_memory.py` (slow) | Naura | 200 MiB up and down through a real uvicorn process stays under 100 MiB peak RSS |
 
 Run everything with `pytest -q`. The 200 MB tests are marked `@pytest.mark.slow` and skipped by default. Run those with `pytest -m slow` on day 5 and day 7.
 
@@ -21,20 +24,20 @@ Every one of these should end in `IntegrityError`:
 
 | | AES | DES | RC4 |
 |---|---|---|---|
-| Change 1 byte in the header | ☐ | ☐ | ☐ |
-| Change 1 byte in the params | ☐ | ☐ | ☐ |
-| Change 1 byte in the ciphertext | ☐ | ☐ | ☐ |
-| Change 1 byte in the tag | ☐ | ☐ | ☐ |
-| Change the DES IV | n/a | ☐ | n/a |
-| Swap two chunks | ☐ | ☐ | ☐ |
-| Remove the last record | ☐ | ☐ | ☐ |
-| Cut the last record in half | ☐ | ☐ | ☐ |
-| Add a copied record at the end | ☐ | ☐ | ☐ |
-| Move the file to another tenant | ☐ | ☐ | ☐ |
-| Swap KTP and agreement | ☐ | ☐ | ☐ |
-| Wrong key | ☐ | ☐ | ☐ |
+| Change 1 byte in the header | ✅ | ✅ | ✅ |
+| Change 1 byte in the params | ✅ | ✅ | ✅ |
+| Change 1 byte in the ciphertext | ✅ | ✅ | ✅ |
+| Change 1 byte in the tag | ✅ | ✅ | ✅ |
+| Change the DES IV | n/a | ✅ | n/a |
+| Swap two chunks | ✅ | ✅ | ✅ |
+| Remove the last record | ✅ | ✅ | ✅ |
+| Cut the last record in half | ✅ | ✅ | ✅ |
+| Add a copied record at the end | ✅ | ✅ | ✅ |
+| Move the file to another tenant | ✅ | ✅ | ✅ |
+| Swap KTP and agreement | ✅ | ✅ | ✅ |
+| Wrong key | ✅ | ✅ | ✅ |
 
-Tick these off on day 7 from the test results and copy the table into the report.
+All ticked from `tests/crypto/test_tamper_checklist.py` (one test per cell, run against real vault files). The table is copied into [the report](../report.md#5-tamper-checklist).
 
 ## Demo (about 8 minutes)
 

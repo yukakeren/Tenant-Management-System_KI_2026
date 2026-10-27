@@ -1,7 +1,8 @@
 """Ata. Login, roles, CSRF, inactive users, forced password change, admin account pages."""
 import inspect
 
-from app.models import AuditLog, User
+from app.auth.security import hash_password
+from app.models import AuditLog, Role, Room, User
 from app.routes import admin as admin_routes
 from .conftest import PASSWORD
 
@@ -58,9 +59,11 @@ def test_roles_are_enforced(make_client, world):
         assert admin.get(url).status_code in (403, 404), url
 
 
-def test_admin_routes_never_touch_documents():
+def test_admin_routes_never_read_documents():
+    # Crude but useful: nothing in the admin routes can decrypt. (unwrap_dek also refuses admins.)
     source = inspect.getsource(admin_routes)
-    assert "vault" not in source and "unwrap_dek" not in source
+    for reader in ("vault", "unwrap_dek", "open_item", "verify_item", "load_bytes", "stream_document"):
+        assert reader not in source, reader
 
 
 def test_inactive_user_is_blocked_and_kicked_out(make_client, world, db_factory):
@@ -77,12 +80,14 @@ def test_inactive_user_is_blocked_and_kicked_out(make_client, world, db_factory)
 def test_admin_creates_tenant_with_key_and_forced_password_change(make_client, world, db_factory):
     admin = make_client()
     admin.login("admin@test.test")
-    r = admin.post("/admin/users", data={"email": "New@Test.test", "role": "tenant", "csrf": admin.csrf()})
+    r = admin.post("/admin/users", data={"email": "New@Test.test", "role": "tenant",
+                                         "room_id": world.room_a_empty, "csrf": admin.csrf()})
     assert r.status_code == 200
     temp = r.text.split('font-mono">')[1].split("<")[0]
     with db_factory() as db:
         new = db.query(User).filter_by(email="new@test.test").one()
         assert new.wrapped_dek is not None and new.must_change_password
+        assert db.get(Room, world.room_a_empty).tenant_id == new.id
         # The temp password is in neither the DB nor the audit log
         assert temp not in new.password_hash
         assert not any(temp in e.detail for e in db.query(AuditLog))
@@ -107,6 +112,33 @@ def test_admin_cannot_create_admin_or_duplicate(make_client, world, db_factory):
     with db_factory() as db:
         assert db.query(User).filter_by(email="boss@test.test").first() is None
         assert db.query(User).filter_by(email="owner_a@test.test").count() == 1
+
+
+def test_tenant_needs_an_empty_room(make_client, world, db_factory):
+    admin = make_client()
+    admin.login("admin@test.test")
+    admin.submit("/admin/users", {"email": "noroom@test.test", "role": "tenant"})
+    admin.submit("/admin/users", {"email": "taken@test.test", "role": "tenant", "room_id": world.room_a})
+    admin.submit("/admin/users", {"email": "ghost@test.test", "role": "tenant", "room_id": 9999})
+    with db_factory() as db:
+        for email in ("noroom@test.test", "taken@test.test", "ghost@test.test"):
+            assert db.query(User).filter_by(email=email).first() is None, email
+        assert db.get(Room, world.room_a).tenant_id == world.tenant_a
+
+
+def test_only_one_owner(make_client, db_factory):
+    with db_factory() as db:
+        db.add(User(email="admin@test.test", password_hash=hash_password(PASSWORD), role=Role.admin,
+                    must_change_password=False))
+        db.commit()
+    admin = make_client()
+    admin.login("admin@test.test")
+    assert 'value="owner"' in admin.get("/admin/users").text
+    assert admin.submit("/admin/users", {"email": "first@test.test", "role": "owner"}).status_code == 200
+    assert 'value="owner"' not in admin.get("/admin/users").text
+    admin.submit("/admin/users", {"email": "second@test.test", "role": "owner"})
+    with db_factory() as db:
+        assert db.query(User).filter_by(role=Role.owner).count() == 1
 
 
 def test_reset_password_keeps_the_key(make_client, world, db_factory):

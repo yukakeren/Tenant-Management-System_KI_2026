@@ -41,7 +41,7 @@ app/
     audit.py              writes to audit_log                                 Ata
   routes/
     tenant.py             profile, uploads, my documents, deletion request    Ajil
-    owner.py              kos, rooms, assign, tenant docs, approve deletion   Melvan
+    owner.py              kos, rooms, move-out, tenant docs, approve deletion   Melvan
     admin.py              accounts, audit log                                 Ata
   templates/              base.html, login.html, tenant/, owner/, admin/
   static/                 input.css (source), app.css (built, not in git)
@@ -120,15 +120,18 @@ user DEK     32 random bytes per tenant, saved as users.wrapped_dek
 ### Creating accounts (there's no sign-up page)
 
 ```
-admin:  POST /admin/users  (email, role = owner or tenant)
-          1. make a random temporary password and hash it
-          2. save the user with must_change_password = true
-          3. if it's a tenant: keys.create_dek(user)
-          4. show the temporary password once; admin gives it to the person (or to the owner, who passes it on)
-          5. audit log
+admin:  POST /admin/users  (email, role = owner or tenant, room for a tenant)
+          1. owner: refused if there already is one (KosanKu has exactly one owner)
+             tenant: the chosen room must exist and be empty
+          2. make a random temporary password and hash it
+          3. save the user with must_change_password = true
+          4. if it's a tenant: keys.create_dek(user) and put them in the room
+          5. show the temporary password once; admin gives it to the person (or to the owner, who passes it on)
+          6. audit log
 user:   first login -> sent to /account/password until they set their own password
-owner:  puts the tenant in a room using their email (the account has to exist already)
 ```
+
+A person pays for a room first and only then gets a login, so a tenant always starts in a room. The owner can move a tenant out; after that the tenant has no room but keeps their data until a deletion request is approved.
 
 We never save the temporary password in plain text or put it in the audit log. Once the user changes it, the admin doesn't know any working password. The admin can reset a password, but that doesn't open the documents: the DEK is wrapped with `MASTER_KEY`, not the password. So documents survive a reset and the admin still can't unwrap them.
 
@@ -177,7 +180,12 @@ owner:  POST /owner/deletion-requests/{id}/approve
                - keys.destroy_dek(tenant) -> wrapped_dek = NULL
           3. empty the room, deactivate the user
           4. status = done, audit log
+admin:  POST /admin/deletion-requests/{id}/approve
+          same steps, but only for requests with owner_id = NULL
+          (the tenant had no room when asking, so there is no owner to decide)
 ```
+
+The request saves `owner_id` when it's made, so the owner can still approve it after moving the tenant out. Approving never unwraps the key, so the admin deciding a request still can't read anything.
 
 Even if a copy of a file survives somewhere (a backup, for example), nobody can decrypt it once the key is gone. This is called crypto-shredding.
 
@@ -188,9 +196,10 @@ Even if a copy of a file survives somewhere (a backup, for example), nobody can 
 | everyone | `GET/POST /login`, `POST /logout` | Ata |
 | everyone | `GET/POST /account/password` (forced on first login, also in the top bar) | Ata |
 | admin | `GET /admin/users`, `POST /admin/users` (create owner or tenant), `POST /admin/users/{id}/reset-password`, `POST /admin/users/{id}/toggle`, `GET /admin/audit` | Ata |
-| owner | `GET/POST /owner/kos`, `GET/POST /owner/kos/{id}/rooms`, `POST /owner/rooms/{id}/assign` (by email), `POST /owner/rooms/{id}/unassign` | Melvan |
+| owner | `GET/POST /owner/kos`, `GET/POST /owner/kos/{id}/rooms`, `POST /owner/kos/{id}/edit`, `POST /owner/kos/{id}/delete`, `POST /owner/rooms/{id}/unassign` (move out) | Melvan |
 | owner | `GET /owner/tenants`, `GET /owner/tenants/{id}`, `GET /owner/tenants/{id}/documents/{kind}` | Melvan |
 | owner | `GET /owner/deletion-requests`, `POST .../{id}/approve`, `POST .../{id}/reject` | Melvan |
+| admin | `GET /admin/deletion-requests`, `POST .../{id}/approve`, `POST .../{id}/reject` (only requests with no owner) | Ata |
 | tenant | `GET/POST /tenant/profile` | Ajil |
 | tenant | `GET /tenant/documents`, `POST /tenant/documents/{kind}`, `GET /tenant/documents/{kind}` | Ajil |
 | tenant | `GET/POST /tenant/deletion-request` | Ajil |

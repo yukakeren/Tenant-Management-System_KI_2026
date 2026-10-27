@@ -21,13 +21,7 @@
           </td>
         {% else %}
           <td class="text-slate-500">empty</td>
-          <td class="text-right">
-            <form method="post" action="/owner/rooms/{{ r.id }}/assign" class="inline-flex gap-2">
-              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
-              <input class="input" name="email" type="email" placeholder="tenant email" required>
-              <button class="btn">Assign</button>
-            </form>
-          </td>
+          <td class="text-right text-xs text-slate-500">The admin creates the tenant's account in this room after they pay.</td>
         {% endif %}
       </tr>
     {% else %}
@@ -36,6 +30,21 @@
     </tbody>
   </table>
   <p class="mt-2 text-xs text-slate-500">Moving a tenant out keeps their data so they can still request deletion, but you lose access to it immediately.</p>
+</div>
+
+<div class="card mt-6">
+  <h2 class="text-lg font-semibold">Edit kos</h2>
+  <form method="post" action="/owner/kos/{{ kos.id }}/edit" class="mt-4 space-y-4">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div><label class="label" for="kos_name">Name</label><input class="input" id="kos_name" name="name" value="{{ kos.name }}" maxlength="120" required></div>
+    <div><label class="label" for="kos_address">Address</label><input class="input" id="kos_address" name="address" value="{{ kos.address }}" maxlength="255" required></div>
+    <button class="btn">Save</button>
+  </form>
+  <form method="post" action="/owner/kos/{{ kos.id }}/delete" class="mt-6 border-t border-slate-200 pt-4">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <p class="mb-2 text-sm text-slate-600">Deleting removes the kos and all its rooms. Only possible when no tenant lives there.</p>
+    <button class="btn-danger" {{ 'disabled' if rooms|selectattr('tenant_id')|list }}>Delete kos</button>
+  </form>
 </div>
 
 <div class="card mt-6">

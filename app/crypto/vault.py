@@ -195,12 +195,13 @@ def shred_user(subject: User, actor: User) -> None:
     db = _session(subject)
     # Only an owner handling an existing deletion request may shred data.
     # This also allows approval after move-out when the owner_id was recorded.
-    # A tenant whose request has no owner at all (moved out) is auto-approved.
+    # A request with no owner at all (tenant had moved out) is decided by the admin.
+    # Shredding never unwraps the DEK, so the admin still can't read anything.
     if subject.role != Role.tenant:
         raise PermissionError("not authorized")
     if actor.role == Role.owner:
         decider = DeletionRequest.owner_id == actor.id
-    elif actor.role == Role.tenant and actor.id == subject.id:
+    elif actor.role == Role.admin:
         decider = DeletionRequest.owner_id.is_(None)
     else:
         raise PermissionError("not authorized")

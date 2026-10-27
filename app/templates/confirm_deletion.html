@@ -8,7 +8,7 @@
     empties their room and closes their account. It can't be undone.
   </p>
   {% if req.reason %}<p class="mt-2 text-sm text-slate-500">Their reason: {{ req.reason }}</p>{% endif %}
-  <form method="post" action="/owner/deletion-requests/{{ req.id }}/approve" class="mt-4 space-y-4">
+  <form method="post" action="{{ base }}/{{ req.id }}/approve" class="mt-4 space-y-4">
     <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
     <div>
       <label class="label" for="confirm">Type <code class="font-mono">{{ confirm_word }}</code> to confirm</label>
@@ -16,7 +16,7 @@
     </div>
     <div class="flex gap-2">
       <button class="btn-danger">Delete everything</button>
-      <a href="/owner/deletion-requests" class="btn-light">Cancel</a>
+      <a href="{{ base }}" class="btn-light">Cancel</a>
     </div>
   </form>
 </div>
