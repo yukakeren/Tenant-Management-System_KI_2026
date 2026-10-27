@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Kos · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="text-xl font-semibold">My kos</h1>
+  <table class="table mt-4">
+    <thead><tr><th>Name</th><th>Address</th><th>Rooms</th><th>Occupied</th><th></th></tr></thead>
+    <tbody>
+    {% for k in kos_list %}
+      <tr>
+        <td>{{ k.name }}</td>
+        <td>{{ k.address }}</td>
+        <td>{{ k.rooms|length }}</td>
+        <td>{{ k.rooms|selectattr('tenant_id')|list|length }}</td>
+        <td class="text-right"><a href="/owner/kos/{{ k.id }}/rooms" class="btn-light">Rooms</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-slate-500">No kos yet. Add one below.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card mt-6">
+  <h2 class="text-lg font-semibold">Add a kos</h2>
+  <form method="post" action="/owner/kos" class="mt-4 space-y-4">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div><label class="label" for="name">Name</label><input class="input" id="name" name="name" maxlength="120" required></div>
+    <div><label class="label" for="address">Address</label><input class="input" id="address" name="address" maxlength="255" required></div>
+    <button class="btn">Add kos</button>
+  </form>
+</div>
+{% endblock %}

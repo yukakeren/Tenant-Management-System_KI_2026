@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Tenants · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto">
+  <h1 class="text-xl font-semibold">My tenants</h1>
+  <table class="table mt-4">
+    <thead><tr><th>Tenant</th><th>Kos</th><th>Room</th><th>Uploaded</th></tr></thead>
+    <tbody>
+    {% for t, room, kos in rows %}
+      <tr>
+        <td><a href="/owner/tenants/{{ t.id }}" class="underline">{{ t.email }}</a></td>
+        <td>{{ kos.name }}</td>
+        <td>{{ room.number }}</td>
+        <td>
+          {% for k in ('profile', 'ktp', 'agreement', 'video') %}
+            <span class="badge {{ '' if k in kinds.get(t.id, ()) else 'opacity-40 line-through' }}">{{ k }}</span>
+          {% endfor %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="text-slate-500">No tenants yet. Assign one from a kos's room list.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

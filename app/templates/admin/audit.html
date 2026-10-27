@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Audit log · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto">
+  <div class="flex items-center gap-4">
+    <h1 class="text-xl font-semibold">Audit log</h1>
+    <a href="/admin/audit" class="nav-link {{ '' if failed else 'font-semibold' }}">All</a>
+    <a href="/admin/audit?failed=true" class="nav-link {{ 'font-semibold' if failed else '' }}">Failures only</a>
+  </div>
+  <p class="mt-1 text-sm text-slate-500">Last 200 entries.</p>
+  <table class="table mt-4">
+    <thead><tr><th>Time (UTC)</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td class="whitespace-nowrap">{{ e.at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{{ emails.get(e.actor_id, '–') }}</td>
+        <td>{{ e.action }}</td>
+        <td>{% if e.target_type %}{{ e.target_type }} #{{ e.target_id }}{% endif %}</td>
+        <td>{% if e.ok %}ok{% else %}<span class="font-medium text-red-700">FAILED</span>{% endif %}</td>
+        <td>{{ e.detail }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="text-slate-500">No entries.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Confirm deletion · KosanKu{% endblock %}
+{% block content %}
+<div class="card mx-auto max-w-lg">
+  <h1 class="text-xl font-semibold text-red-700">Permanently delete {{ tenant.email }}'s data?</h1>
+  <p class="mt-2 text-sm text-slate-700">
+    This deletes all of their documents (all three encrypted copies) and destroys their key,
+    empties their room and closes their account. It can't be undone.
+  </p>
+  {% if req.reason %}<p class="mt-2 text-sm text-slate-500">Their reason: {{ req.reason }}</p>{% endif %}
+  <form method="post" action="/owner/deletion-requests/{{ req.id }}/approve" class="mt-4 space-y-4">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div>
+      <label class="label" for="confirm">Type <code class="font-mono">{{ confirm_word }}</code> to confirm</label>
+      <input class="input" id="confirm" name="confirm" autocomplete="off" required>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn-danger">Delete everything</button>
+      <a href="/owner/deletion-requests" class="btn-light">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

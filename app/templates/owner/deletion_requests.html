@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Deletion requests · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto">
+  <h1 class="text-xl font-semibold">Deletion requests</h1>
+  <table class="table mt-4">
+    <thead><tr><th>Tenant</th><th>Requested</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for req, t in rows %}
+      <tr>
+        <td>{{ t.email }}</td>
+        <td class="whitespace-nowrap">{{ req.requested_at.strftime('%Y-%m-%d') }}</td>
+        <td>{{ req.reason or '–' }}</td>
+        <td><span class="badge">{{ req.status.value }}</span>{% if req.reject_reason %}<div class="text-xs text-slate-500">{{ req.reject_reason }}</div>{% endif %}</td>
+        <td class="text-right">
+          {% if req.status.value == 'pending' %}
+            <a href="/owner/deletion-requests/{{ req.id }}/approve" class="btn-danger">Approve…</a>
+            <form method="post" action="/owner/deletion-requests/{{ req.id }}/reject" class="mt-2 flex gap-2">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <input class="input" name="reason" placeholder="Reason for rejecting" required>
+              <button class="btn-light">Reject</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-slate-500">No requests.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

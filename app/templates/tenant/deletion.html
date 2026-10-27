@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Delete my data · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="text-xl font-semibold">Delete my data</h1>
+  <p class="mt-2 text-sm text-slate-700">
+    After you move out you can ask for all your data to be deleted. We delete every encrypted copy and destroy
+    your key, so even a leftover backup can't be read. Your account is closed afterwards.
+  </p>
+
+  {% if req %}
+    <div class="mt-4 text-sm">
+      Latest request ({{ req.requested_at.strftime('%Y-%m-%d') }}): <span class="badge">{{ req.status.value }}</span>
+      {% if req.status.value == 'pending' %}<p class="mt-1 text-slate-600">Waiting for your kos owner to approve it.</p>{% endif %}
+      {% if req.status.value == 'rejected' %}<p class="mt-1 text-slate-600">Reason: {{ req.reject_reason }}</p>{% endif %}
+    </div>
+  {% endif %}
+
+  {% if not req or req.status.value != 'pending' %}
+    <form method="post" action="/tenant/deletion-request" class="mt-6 space-y-4">
+      <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+      <div>
+        <label class="label" for="reason">Reason (optional)</label>
+        <textarea class="input" id="reason" name="reason" rows="3" maxlength="1000"></textarea>
+      </div>
+      {% if not room %}
+        <p class="text-sm font-medium text-red-700">You have no room, so there's no owner to approve this: your data is deleted immediately.</p>
+      {% endif %}
+      <button class="btn-danger">Request deletion</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

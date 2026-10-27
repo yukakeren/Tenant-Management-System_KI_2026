@@ -1,4 +1,4 @@
-"""Naura. Known-answer test first (day 1), suite tests once rc4.py exists (day 2)."""
+"""Ajil. Known-answer test first (day 1), suite tests once rc4.py exists (day 2)."""
 
 import os
 import pytest

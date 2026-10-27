@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Profile · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="text-xl font-semibold">My profile</h1>
+  {% if errors %}
+    <div class="flash-err mt-4"><ul class="list-disc pl-4">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  <form method="post" action="/tenant/profile" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div><label class="label" for="full_name">Full name</label><input class="input" id="full_name" name="full_name" value="{{ form.full_name }}" maxlength="200" required></div>
+    <div><label class="label" for="nik">NIK (16 digits)</label><input class="input" id="nik" name="nik" value="{{ form.nik }}" inputmode="numeric" pattern="\d{16}" required></div>
+    <div><label class="label" for="birth_date">Birth date</label><input class="input" id="birth_date" name="birth_date" type="date" value="{{ form.birth_date }}" required></div>
+    <div>
+      <label class="label" for="gender">Gender</label>
+      <select class="input" id="gender" name="gender" required>
+        <option value=""></option>
+        {% for g in genders %}<option value="{{ g }}" {{ 'selected' if form.gender == g }}>{{ g|capitalize }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="label" for="phone">Phone</label><input class="input" id="phone" name="phone" type="tel" value="{{ form.phone }}" required></div>
+    <div><label class="label" for="occupation">Occupation</label><input class="input" id="occupation" name="occupation" value="{{ form.occupation }}" maxlength="200" required></div>
+    <div class="sm:col-span-2"><label class="label" for="origin_address">Home address</label><input class="input" id="origin_address" name="origin_address" value="{{ form.origin_address }}" maxlength="200" required></div>
+
+    <h2 class="text-lg font-semibold sm:col-span-2">Emergency contact</h2>
+    <div><label class="label" for="ec_name">Name</label><input class="input" id="ec_name" name="ec_name" value="{{ form.ec_name }}" maxlength="200" required></div>
+    <div><label class="label" for="ec_relation">Relation</label><input class="input" id="ec_relation" name="ec_relation" value="{{ form.ec_relation }}" maxlength="200" required></div>
+    <div><label class="label" for="ec_phone">Phone</label><input class="input" id="ec_phone" name="ec_phone" type="tel" value="{{ form.ec_phone }}" required></div>
+
+    <div class="sm:col-span-2"><button class="btn" data-busy="Encrypting…">Save profile</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -48,6 +48,7 @@ pip install -r requirements.txt
 
 cp .env.example .env                              # then fill SECRET_KEY and MASTER_KEY:
 python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
+python scripts/seed.py                            # demo accounts, prints the logins
 
 bin/tailwindcss -i app/static/input.css -o app/static/app.css --watch   # terminal 1
 uvicorn app.main:app --reload                                            # terminal 2

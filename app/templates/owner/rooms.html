@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ kos.name }} · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto">
+  <a href="/owner/kos" class="nav-link text-sm">&larr; All kos</a>
+  <h1 class="mt-2 text-xl font-semibold">{{ kos.name }}</h1>
+  <p class="text-sm text-slate-500">{{ kos.address }}</p>
+  <table class="table mt-4">
+    <thead><tr><th>Room</th><th>Tenant</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rooms %}
+      <tr>
+        <td>{{ r.number }}</td>
+        {% if r.tenant %}
+          <td><a href="/owner/tenants/{{ r.tenant.id }}" class="underline">{{ r.tenant.email }}</a></td>
+          <td class="text-right">
+            <form method="post" action="/owner/rooms/{{ r.id }}/unassign" class="inline">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <button class="btn-light">Move out</button>
+            </form>
+          </td>
+        {% else %}
+          <td class="text-slate-500">empty</td>
+          <td class="text-right">
+            <form method="post" action="/owner/rooms/{{ r.id }}/assign" class="inline-flex gap-2">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <input class="input" name="email" type="email" placeholder="tenant email" required>
+              <button class="btn">Assign</button>
+            </form>
+          </td>
+        {% endif %}
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="text-slate-500">No rooms yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="mt-2 text-xs text-slate-500">Moving a tenant out keeps their data so they can still request deletion, but you lose access to it immediately.</p>
+</div>
+
+<div class="card mt-6">
+  <h2 class="text-lg font-semibold">Add a room</h2>
+  <form method="post" action="/owner/kos/{{ kos.id }}/rooms" class="mt-4 flex items-end gap-3">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div><label class="label" for="number">Room number</label><input class="input" id="number" name="number" maxlength="20" required></div>
+    <button class="btn">Add room</button>
+  </form>
+</div>
+{% endblock %}

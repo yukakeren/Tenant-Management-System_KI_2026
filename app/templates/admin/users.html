@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Users · KosanKu{% endblock %}
+{% block content %}
+{% if temp_password %}
+  <div class="flash-ok">
+    Temporary password for <strong>{{ temp_password[0] }}</strong>:
+    <code class="rounded bg-white px-2 py-1 font-mono">{{ temp_password[1] }}</code>
+    <br>It's shown only this once. Give it to the user; they must change it on first login.
+  </div>
+{% endif %}
+
+<div class="card">
+  <h1 class="text-xl font-semibold">Create account</h1>
+  <form method="post" action="/admin/users" class="mt-4 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div class="grow">
+      <label class="label" for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" required>
+    </div>
+    <div>
+      <label class="label" for="role">Role</label>
+      <select class="input" id="role" name="role">
+        <option value="tenant">Tenant</option>
+        <option value="owner">Owner</option>
+      </select>
+    </div>
+    <button class="btn">Create</button>
+  </form>
+</div>
+
+<div class="card mt-6 overflow-x-auto">
+  <h2 class="text-lg font-semibold">All users</h2>
+  <p class="mt-1 text-sm text-slate-500">Only non-sensitive data. Admins can't open tenant profiles or documents.</p>
+  <table class="table mt-4">
+    <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Room</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.email }}</td>
+        <td><span class="badge">{{ u.role.value }}</span></td>
+        <td>{{ 'active' if u.is_active else 'inactive' }}{% if u.must_change_password %} · temp password{% endif %}</td>
+        <td>{% if u.room %}{{ u.room.kos.name }} / {{ u.room.number }}{% else %}–{% endif %}</td>
+        <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+        <td class="whitespace-nowrap text-right">
+          {% if u.id != user.id %}
+            <form method="post" action="/admin/users/{{ u.id }}/reset-password" class="inline">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <button class="btn-light">Reset password</button>
+            </form>
+            <form method="post" action="/admin/users/{{ u.id }}/toggle" class="inline">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <button class="{{ 'btn-danger' if u.is_active else 'btn-light' }}">{{ 'Deactivate' if u.is_active else 'Activate' }}</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

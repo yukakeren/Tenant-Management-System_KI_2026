@@ -3,12 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KosanKu</title>
+  <title>{% block title %}KosanKu{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
 </head>
 
 <body class="bg-slate-50 text-slate-900">
-    <main class="mx-auto max-w-3xl p-4">
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-5xl flex-wrap items-center gap-4 p-4 text-sm">
+      <a href="/" class="font-semibold">KosanKu</a>
+      {% if user %}
+        {% if user.role.value == 'admin' %}
+          <a href="/admin/users" class="nav-link">Users</a>
+          <a href="/admin/audit" class="nav-link">Audit log</a>
+        {% elif user.role.value == 'owner' %}
+          <a href="/owner/kos" class="nav-link">Kos &amp; rooms</a>
+          <a href="/owner/tenants" class="nav-link">Tenants</a>
+          <a href="/owner/deletion-requests" class="nav-link">Deletion requests</a>
+        {% else %}
+          <a href="/tenant" class="nav-link">Home</a>
+          <a href="/tenant/profile" class="nav-link">Profile</a>
+          <a href="/tenant/documents" class="nav-link">Documents</a>
+          <a href="/tenant/deletion-request" class="nav-link">Delete my data</a>
+        {% endif %}
+        <span class="ml-auto text-slate-500">{{ user.email }}</span>
+        <a href="/account/password" class="nav-link">Password</a>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+          <button class="btn-light">Log out</button>
+        </form>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-5xl p-4">
     {% for kind, msg in flashes|default([]) %}
       <div class="{{ 'flash-ok' if kind == 'ok' else 'flash-err' }}">
         {{ msg }}
