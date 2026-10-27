@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Documents · KosanKu{% endblock %}
+{% block content %}
+{% if error %}<div class="flash-err">{{ error }}</div>{% endif %}
+<div class="card overflow-x-auto">
+  <h1 class="text-xl font-semibold">My documents</h1>
+  <table class="table mt-4">
+    <thead><tr><th>Type</th><th>File</th><th>Upload (replaces the old one)</th></tr></thead>
+    <tbody>
+    {% for k in kinds %}
+      {% set it = items.get(k) %}
+      <tr>
+        <td class="align-top">
+          <div class="font-medium">{{ {'ktp': 'KTP', 'agreement': 'Rental agreement', 'video': 'Room video'}[k] }}</div>
+          <div class="text-xs text-slate-500">{{ specs[k].allowed_exts|sort|join(', ') }} · max {{ specs[k].max_size // 1048576 }} MB</div>
+        </td>
+        <td class="align-top">
+          {% if it %}
+            <div>{{ '%.1f'|format(it.plain_size / 1048576) }} MB · {{ it.updated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <a class="btn" href="/tenant/documents/{{ k }}">Download</a>
+              {% for c in ciphers %}<a class="btn-light" href="/tenant/documents/{{ k }}?cipher={{ c }}">{{ c|upper }}</a>{% endfor %}
+            </div>
+          {% else %}
+            <span class="text-slate-500">not uploaded</span>
+          {% endif %}
+        </td>
+        <td class="align-top">
+          <form method="post" action="/tenant/documents/{{ k }}" enctype="multipart/form-data" class="flex flex-wrap gap-2">
+            <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+            <input type="file" name="file" accept="{{ specs[k].allowed_exts|join(',') }}" class="text-sm" required>
+            <button class="btn" data-busy="Encrypting…">Upload</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

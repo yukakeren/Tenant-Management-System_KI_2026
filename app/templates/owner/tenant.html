@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ t.email }} · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <a href="/owner/tenants" class="nav-link text-sm">&larr; All tenants</a>
+  <h1 class="mt-2 mb-4 text-xl font-semibold">{{ d.profile.full_name if d.profile else t.email }}</h1>
+  {% include "owner/_tenant_detail.html" %}
+</div>
+{% endblock %}

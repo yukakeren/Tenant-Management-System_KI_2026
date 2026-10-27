@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Log in · KosanKu{% endblock %}
+{% block content %}
+<div class="card mx-auto max-w-sm">
+  <h1 class="text-xl font-semibold">Log in</h1>
+  {% if error %}<div class="flash-err mt-4">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="mt-4 space-y-4">
+    <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+    <div>
+      <label class="label" for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" value="{{ email or '' }}" required autofocus>
+    </div>
+    <div>
+      <label class="label" for="password">Password</label>
+      <input class="input" id="password" name="password" type="password" required>
+    </div>
+    <button class="btn w-full justify-center">Log in</button>
+  </form>
+  <p class="mt-4 text-xs text-slate-500">No account? Your kos owner or the admin creates it for you.</p>
+</div>
+{% endblock %}

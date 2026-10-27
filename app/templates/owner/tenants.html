@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Tenants · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto p-0">
+  <h1 class="px-6 pt-6 text-xl font-semibold">My tenants</h1>
+  <p class="px-6 text-sm text-slate-500">Click a tenant to see their data and documents.</p>
+  <table class="table mt-4">
+    <thead><tr><th class="pl-6">Tenant</th><th>Kos / room</th><th>Uploaded</th><th></th></tr></thead>
+    <tbody>
+    {% for t, room, kos in rows %}
+      {% set d = details[t.id] %}
+      <tr>
+        <td class="pl-6">
+          <button type="button" class="flex items-center gap-1 text-left" data-toggle="detail-{{ t.id }}" aria-expanded="false" aria-controls="detail-{{ t.id }}">
+            <span>
+              <span class="block font-semibold">{{ d.profile.full_name if d.profile else t.email }}</span>
+              <span class="block text-xs text-slate-500">{{ t.email }}</span>
+            </span>
+            <span class="toggle-icon text-slate-400" aria-hidden="true">▾</span>
+          </button>
+        </td>
+        <td>{{ kos.name }} / {{ room.number }}</td>
+        <td>
+          {% for k in ('profile', 'ktp', 'agreement', 'video') %}
+            {% set done = (k == 'profile' and d.profile) or k in d['items'] %}
+            <span class="badge {{ '' if done else 'opacity-40 line-through' }}">{{ k }}</span>
+          {% endfor %}
+        </td>
+        <td class="pr-6 text-right"><a href="/owner/tenants/{{ t.id }}" class="btn-light">Open page</a></td>
+      </tr>
+      <tr id="detail-{{ t.id }}" class="hidden bg-slate-50">
+        <td colspan="4" class="px-6 py-4">
+          <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Full details: {{ d.profile.full_name if d.profile else t.email }}</p>
+          {% include "owner/_tenant_detail.html" %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="pl-6 text-slate-500">No tenants yet. The admin creates a tenant's account in one of your rooms after they pay.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

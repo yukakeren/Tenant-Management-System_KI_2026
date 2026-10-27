@@ -148,7 +148,7 @@ def store_bytes(subject: User, kind: ItemKind | str, data: bytes,
 
 
 def _read_target(subject: User, kind: ItemKind | str, cipher: str, actor: User):
-    dek = unwrap_dek(subject, actor)
+    dek = unwrap_dek(subject, actor, _kind(kind).value)
     item = _get_item(subject, kind)
     if item is None:
         raise FileNotFoundError("encrypted document not found")
@@ -179,7 +179,7 @@ def load_bytes(subject: User, kind: ItemKind | str, actor: User,
                cipher: str | None = None) -> bytes | None:
     if _get_item(subject, kind) is None:
         # Still authorize to avoid letting callers probe the existence of items.
-        unwrap_dek(subject, actor)
+        unwrap_dek(subject, actor, _kind(kind).value)
         return None
     selected = cipher or settings.read_cipher
     verify_item(subject, kind, selected, actor)
@@ -195,11 +195,19 @@ def shred_user(subject: User, actor: User) -> None:
     db = _session(subject)
     # Only an owner handling an existing deletion request may shred data.
     # This also allows approval after move-out when the owner_id was recorded.
-    if subject.role != Role.tenant or actor.role != Role.owner:
+    # A request with no owner at all (tenant had moved out) is decided by the admin.
+    # Shredding never unwraps the DEK, so the admin still can't read anything.
+    if subject.role != Role.tenant:
+        raise PermissionError("not authorized")
+    if actor.role == Role.owner:
+        decider = DeletionRequest.owner_id == actor.id
+    elif actor.role == Role.admin:
+        decider = DeletionRequest.owner_id.is_(None)
+    else:
         raise PermissionError("not authorized")
     request = db.scalar(select(DeletionRequest).where(
         DeletionRequest.tenant_id == subject.id,
-        DeletionRequest.owner_id == actor.id,
+        decider,
         DeletionRequest.status.in_([DeletionStatus.pending, DeletionStatus.approved])))
     if request is None:
         raise PermissionError("no authorized deletion request")

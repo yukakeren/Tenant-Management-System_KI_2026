@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Deletion requests · KosanKu{% endblock %}
+{% block content %}
+<div class="card overflow-x-auto">
+  <h1 class="text-xl font-semibold">Deletion requests</h1>
+  {% if user.role.value == 'admin' %}
+    <p class="mt-1 text-sm text-slate-500">Requests from tenants who had no room (and so no owner) when they asked. Approving deletes their files and key; it never shows you their contents.</p>
+  {% endif %}
+  <table class="table mt-4">
+    <thead><tr><th>Tenant</th><th>Requested</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for req, t in rows %}
+      <tr>
+        <td>{{ t.email }}</td>
+        <td class="whitespace-nowrap">{{ req.requested_at.strftime('%Y-%m-%d') }}</td>
+        <td>{{ req.reason or '–' }}</td>
+        <td><span class="badge">{{ req.status.value }}</span>{% if req.reject_reason %}<div class="text-xs text-slate-500">{{ req.reject_reason }}</div>{% endif %}</td>
+        <td class="text-right">
+          {% if req.status.value == 'pending' %}
+            <a href="{{ base }}/{{ req.id }}/approve" class="btn-danger">Approve…</a>
+            <form method="post" action="{{ base }}/{{ req.id }}/reject" class="mt-2 flex gap-2">
+              <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+              <input class="input" name="reason" placeholder="Reason for rejecting" required>
+              <button class="btn-light">Reject</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-slate-500">No requests.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

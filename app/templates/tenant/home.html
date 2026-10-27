@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Home · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="text-xl font-semibold">Welcome</h1>
+  <p class="mt-1 text-sm text-slate-600">
+    {% if room %}You live in {{ room.kos.name }}, room {{ room.number }}.{% else %}You no longer have a room here.{% endif %}
+  </p>
+  <h2 class="mt-6 text-lg font-semibold">Your onboarding checklist</h2>
+  <ul class="mt-2 space-y-2 text-sm">
+    {% for k in kinds %}
+      <li class="flex items-center gap-2">
+        <span class="{{ 'text-green-700' if k in items else 'text-slate-400' }}">{{ '✓' if k in items else '–' }}</span>
+        <a class="underline" href="{{ '/tenant/profile' if k == 'profile' else '/tenant/documents' }}">
+          {{ {'profile': 'Profile and emergency contact', 'ktp': 'KTP', 'agreement': 'Rental agreement', 'video': 'Room video'}[k] }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+  <p class="mt-6 text-xs text-slate-500">Everything you enter or upload is encrypted three times (AES, DES, RC4). Only you and your current kos owner can open it.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <p class="text-sm font-medium text-slate-500">Error {{ code }}</p>
+  <h1 class="mt-1 text-xl font-semibold">
+    {% if code == 404 %}Not found{% elif code == 403 %}Not allowed{% elif code == 409 %}Integrity check failed{% else %}Something went wrong{% endif %}
+  </h1>
+  <p class="mt-2 text-sm text-slate-700">{{ detail }}</p>
+  <a href="/" class="btn-light mt-6">Back to home</a>
+</div>
+{% endblock %}
