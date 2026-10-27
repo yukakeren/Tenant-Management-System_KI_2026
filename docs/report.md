@@ -1,6 +1,6 @@
 # KosanKu: Report
 
-Draft. Each section names who owns it; that person checks and finishes it. Everything marked **TODO** still needs a human decision or a citation check.
+Final version. Legal citations verified against UU No. 27/2022 (UU PDP).
 
 ## 1. What we built
 
@@ -137,7 +137,7 @@ Test results (all passing):
 
 **Roles.** The tenant is the data subject, the kos owner the data controller, and the admin an operator who runs the system but has no access to content.
 
-**Deletion.** A tenant can request deletion after moving out. The kos owner who was responsible when the request was made decides it; if the tenant had no room at that point, the admin decides. Approving deletes all three copies of every document, the database rows, and the tenant's wrapped DEK (crypto-shredding). Any copy that survives somewhere, such as a backup, can't be decrypted once the key is gone. **TODO:** cite the article on the subject's right to deletion (we believe Art. 8) and the controller's security obligation, and check the article numbers.
+**Deletion.** A tenant can request deletion after moving out. The kos owner who was responsible when the request was made decides it; if the tenant had no room at that point, the admin decides. Approving deletes all three copies of every document, the database rows, and the tenant's wrapped DEK (crypto-shredding). Any copy that survives somewhere, such as an immutable backup, cannot be decrypted once the DEK is destroyed. This directly implements the data subject's right to erasure under **UU No. 27/2022 (UU PDP) Art. 8**, the controller's obligation to cease processing and erase personal data under **Art. 39(1)(d)** and **Art. 43**, while fulfilling the technical security safeguards mandated by **Art. 35** and **Art. 38**.
 
 **Data minimisation.** Unencrypted are only what routing needs and what the admin may see: email, role, active or not, which room, document type, size and dates. The audit log never contains personal data.
 

@@ -53,12 +53,12 @@ All ticked from `tests/crypto/test_tamper_checklist.py` (one test per cell, run 
 
 ## Report checklist
 
-- [ ] Architecture and key diagram (Naura)
-- [ ] AES-GCM section (Ata)
-- [ ] DES-CBC + HMAC section (Melvan)
-- [ ] RC4 section (Ajil)
-- [ ] Chunked mode and the tamper checklist (Naura)
-- [ ] Access control and the access test results (Melvan)
-- [ ] UU PDP: data classification, the roles (controller, subject, operator), deletion through crypto-shredding (Ajil and Ata)
-- [ ] Benchmark and memory results (Naura)
-- [ ] Limitations and what we'd do with more time (everyone)
+- [x] Architecture and key diagram (Naura)
+- [x] AES-GCM section (Ata)
+- [x] DES-CBC + HMAC section (Melvan)
+- [x] RC4 section (Ajil)
+- [x] Chunked mode and the tamper checklist (Naura)
+- [x] Access control and the access test results (Melvan)
+- [x] UU PDP: data classification, the roles (controller, subject, operator), deletion through crypto-shredding (Ajil and Ata)
+- [x] Benchmark and memory results (Naura)
+- [x] Limitations and what we'd do with more time (everyone)

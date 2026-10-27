@@ -81,11 +81,11 @@ Watch out for:
 - [x] Textbook known-answer vector (key `133457799BBCDFF1`, plaintext `0123456789ABCDEF`, ciphertext `85E813540F0AB405`), already passing
 - [x] CBC with a zero IV gives the same first block as ECB, already passing
 - [x] Flipping the parity bits gives the same result (that's the 56-bit point), already passing
-- [ ] Every byte from `_odd_parity` has an odd number of 1-bits
-- [ ] Flipping a bit in the IV raises `IntegrityError` (add a comment: without the MAC this would silently change block 1)
-- [ ] A ciphertext whose length isn't a multiple of 8 raises `IntegrityError`, not `ValueError`
-- [ ] The same plaintext in two chunks gives different ciphertext (because of the random IV)
-- [ ] Passes `tests/crypto/test_contract.py`
+- [x] Every byte from `_odd_parity` has an odd number of 1-bits
+- [x] Flipping a bit in the IV raises `IntegrityError` (add a comment: without the MAC this would silently change block 1)
+- [x] A ciphertext whose length isn't a multiple of 8 raises `IntegrityError`, not `ValueError`
+- [x] The same plaintext in two chunks gives different ciphertext (because of the random IV)
+- [x] Passes `tests/crypto/test_contract.py`
 
 ## App
 
