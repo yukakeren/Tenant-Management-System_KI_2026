@@ -47,6 +47,14 @@ class DeletionStatus(str, enum.Enum):
     done = "done"
 
 
+class GrantStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    revoked = "revoked"
+    expired = "expired"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -63,6 +71,7 @@ class User(Base):
 
     kos_list: Mapped[list["Kos"]] = relationship(back_populates="owner")
     room: Mapped["Room | None"] = relationship(back_populates="tenant", foreign_keys="Room.tenant_id")
+    public_key: Mapped["PublicKey | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class Kos(Base):
@@ -146,3 +155,35 @@ class AuditLog(Base):
     ok: Mapped[bool] = mapped_column(Boolean, default=True)
     detail: Mapped[str] = mapped_column(String(255), default="")  # never put personal data here
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PublicKey(Base):
+    __tablename__ = "public_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    pem: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    user: Mapped[User] = relationship(back_populates="public_key")
+
+
+class AccessGrant(Base):
+    __tablename__ = "access_grants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    requester_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    kinds: Mapped[str] = mapped_column(String(100))  # comma-separated e.g. "profile,ktp,agreement"
+    reason: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[GrantStatus] = mapped_column(Enum(GrantStatus), default=GrantStatus.pending)
+    reject_reason: Mapped[str] = mapped_column(Text, default="")
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    wrapped_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+    tenant: Mapped[User] = relationship(foreign_keys=[tenant_id])
+    requester: Mapped[User] = relationship(foreign_keys=[requester_id])
+

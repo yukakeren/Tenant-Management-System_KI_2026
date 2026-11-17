@@ -31,12 +31,14 @@ class Settings:
     storage_dir: Path
     read_cipher: str
     debug: bool
+    access_grant_ttl_minutes: int
 
 
 def load_settings() -> Settings:
     read_cipher = os.getenv("READ_CIPHER", "aes")
     if read_cipher not in CIPHERS:
         raise RuntimeError(f"READ_CIPHER must be one of {CIPHERS}")
+    access_grant_ttl_minutes = int(os.getenv("ACCESS_GRANT_TTL_MINUTES", "43200"))
     return Settings(
         secret_key=_key_from_env("SECRET_KEY"),
         master_key=_key_from_env("MASTER_KEY"),
@@ -44,6 +46,7 @@ def load_settings() -> Settings:
         storage_dir=Path(os.getenv("STORAGE_DIR", "./storage/blobs")),
         read_cipher=read_cipher,
         debug=os.getenv("DEBUG", "false").lower() == "true",
+        access_grant_ttl_minutes=access_grant_ttl_minutes,
     )
 
 

@@ -27,6 +27,8 @@ def approve(db: Session, req: DeletionRequest, tenant: User, actor: User) -> Non
         vault.shred_user(tenant, actor)  # deletes files and DEK, marks the request done, commits
     except PermissionError:
         raise HTTPException(404, "Deletion request not found.") from None
+    from app.services import grants
+    grants.purge_for_tenant(db, tenant)
     if room is not None:
         room.tenant_id = None
     tenant.is_active = False
