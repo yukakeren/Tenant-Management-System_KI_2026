@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Kunci terenkripsi · KosanKu{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="text-xl font-semibold">Kunci terenkripsi untuk admin</h1>
+  <p class="mt-2 text-sm text-slate-700">
+    Salin teks kunci di bawah ini dan kirim ke admin lewat WhatsApp atau email.
+    Admin membutuhkan kunci ini beserta private key-nya untuk membuka salinan dokumen Anda.
+  </p>
+  <p class="mt-1 text-xs text-slate-500">
+    Ini adalah salinan <strong>snapshot</strong> dari dokumen Anda saat disetujui.
+    Perubahan data setelah persetujuan tidak tercermin di salinan.
+  </p>
+
+  <div class="mt-4">
+    <label class="label">Dokumen yang diminta</label>
+    <p class="text-sm">{{ grant.kinds }}</p>
+  </div>
+
+  <div class="mt-4">
+    <label class="label">Berlaku sampai</label>
+    <p class="text-sm">{{ grant.expires_at.strftime('%Y-%m-%d %H:%M') if grant.expires_at else '–' }}</p>
+  </div>
+
+  <div class="mt-4">
+    <label class="label" for="enc-key">Kunci terenkripsi (salin seluruhnya)</label>
+    <textarea class="input" id="enc-key" rows="6" readonly onclick="this.select()">{{ encrypted_key }}</textarea>
+  </div>
+
+  <div class="mt-4 flex gap-2">
+    <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('enc-key').value); this.textContent='Tersalin!'">
+      Salin ke clipboard
+    </button>
+    <a href="/tenant/access-requests" class="btn-light">Kembali</a>
+  </div>
+</div>
+{% endblock %}

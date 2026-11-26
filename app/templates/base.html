@@ -25,7 +25,12 @@
           <a href="/tenant" class="nav-link">Home</a>
           <a href="/tenant/profile" class="nav-link">Profile</a>
           <a href="/tenant/documents" class="nav-link">Documents</a>
-          <a href="/tenant/deletion-request" class="nav-link">Delete my data</a>
+          <a href="/tenant/access-requests" class="nav-link">
+            Privasi data
+            {% if request.state.pending_grants|default(0) > 0 %}
+              <span class="badge" style="background:#dc2626;color:#fff;margin-left:4px">{{ request.state.pending_grants }}</span>
+            {% endif %}
+          </a>
         {% endif %}
         <span class="ml-auto text-slate-500">{{ user.email }}</span>
         <a href="/account/password" class="nav-link">Password</a>

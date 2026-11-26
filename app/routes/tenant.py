@@ -18,19 +18,144 @@ from app.config import CIPHERS, settings
 from app.crypto import vault
 from app.crypto.base import IntegrityError
 from app.db import get_db
-from app.models import DeletionRequest, DeletionStatus, ItemKind, Role, SecretItem, User
+from app.models import (
+    DeletionRequest, DeletionStatus, ItemKind, Role,
+    SecretItem, User, AccessGrant, GrantStatus, PublicKey,
+)
 from app.services import audit
+from app.services import grants as grant_service
 from app.services.documents import DOC_KINDS, stream_document
 from app.services.upload import DOCUMENT_SPECS, validate_upload_stream
 from app.web import flash, redirect, render
 
-router = APIRouter(prefix="/tenant", dependencies=[Depends(csrf_protect)])
+try:
+    from app.crypto import shares
+    from app.crypto import asym
+except ImportError:
+    from app.crypto import shares_stub as shares
+    from app.crypto import asym_stub as asym
+
 get_current_tenant = require_role(Role.tenant)
+
+def _inject_pending_count(
+    request: Request,
+    user: User = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+):
+    """Set request.state.pending_grants so base.html can show the badge."""
+    request.state.pending_grants = grant_service.count_pending_for_tenant(db, user)
+
+
+# --- 3) Router with both csrf_protect and _inject_pending_count ---
+router = APIRouter(
+    prefix="/tenant",
+    dependencies=[Depends(csrf_protect), Depends(_inject_pending_count)],
+)
 
 PROFILE_FIELDS = ("full_name", "nik", "birth_date", "gender", "phone", "origin_address", "occupation")
 EMERGENCY_FIELDS = ("name", "relation", "phone")
 GENDERS = ("male", "female")
 _PHONE = re.compile(r"\+?\d{8,15}")
+
+
+@router.get("/access-requests")
+def access_requests(request: Request, user: User = Depends(get_current_tenant),
+                    db: Session = Depends(get_db)):
+    """Halaman 'Privasi data' gabungan: riwayat permintaan akses + hapus data."""
+    grant_list = grant_service.list_grants_for_tenant(db, user)
+    latest_deletion = _latest_request(db, user)
+    return render(request, "tenant/privacy.html",
+                  grants=grant_list,
+                  req=latest_deletion,
+                  room=user.room)
+
+@router.post("/access-requests/{grant_id}/approve")
+def approve_grant(request: Request, grant_id: int,
+                  user: User = Depends(get_current_tenant),
+                  db: Session = Depends(get_db)):
+    """Tenant menyetujui permintaan akses admin."""
+    grant = grant_service.get_tenant_grant_or_404(db, grant_id, user)
+    if grant.status != GrantStatus.pending:
+        flash(request, "err", "Permintaan ini sudah diproses.")
+        return redirect("/tenant/access-requests")
+
+    # Buat share: K (grant key) + wrapped_key
+    kinds_list = grant.kinds.split(",")
+    K, wrapped_key = shares.create_share(db, user, grant.id, kinds_list)
+
+    # Simpan wrapped_key ke grant
+    grant.wrapped_key = wrapped_key
+
+    # Enkripsi K dengan public key admin
+    admin_pk = db.scalar(
+        select(PublicKey).where(PublicKey.user_id == grant.requester_id)
+    )
+    if admin_pk is None:
+        flash(request, "err", "Admin belum membuat key pair. Tidak bisa menyetujui.")
+        return redirect("/tenant/access-requests")
+
+    encrypted_key_text = asym.encrypt_key(admin_pk.pem, K)
+
+    # Transisi status ke approved
+    grant_service.transition(db, grant, GrantStatus.approved, actor=user)
+
+    flash(request, "ok", "Permintaan disetujui. Salin kunci terenkripsi dan kirim ke admin.")
+    return redirect(f"/tenant/access-requests/{grant_id}/key")
+
+@router.post("/access-requests/{grant_id}/reject")
+def reject_grant(request: Request, grant_id: int,
+                 reason: str = Form(""),
+                 user: User = Depends(get_current_tenant),
+                 db: Session = Depends(get_db)):
+    """Tenant menolak permintaan akses admin."""
+    grant = grant_service.get_tenant_grant_or_404(db, grant_id, user)
+    if grant.status != GrantStatus.pending:
+        flash(request, "err", "Permintaan ini sudah diproses.")
+        return redirect("/tenant/access-requests")
+
+    grant_service.transition(db, grant, GrantStatus.rejected, actor=user,
+                             reason=reason.strip()[:1000])
+    flash(request, "ok", "Permintaan ditolak.")
+    return redirect("/tenant/access-requests")
+
+@router.post("/access-requests/{grant_id}/revoke")
+def revoke_grant(request: Request, grant_id: int,
+                 user: User = Depends(get_current_tenant),
+                 db: Session = Depends(get_db)):
+    """Tenant mencabut akses yang sudah disetujui."""
+    grant = grant_service.get_tenant_grant_or_404(db, grant_id, user)
+    if grant.status != GrantStatus.approved:
+        flash(request, "err", "Hanya akses yang aktif yang bisa dicabut.")
+        return redirect("/tenant/access-requests")
+
+    grant_service.transition(db, grant, GrantStatus.revoked, actor=user)
+    flash(request, "ok", "Akses dicabut. Salinan dokumen dan kunci telah dihapus.")
+    return redirect("/tenant/access-requests")
+
+@router.get("/access-requests/{grant_id}/key")
+def show_encrypted_key(request: Request, grant_id: int,
+                       user: User = Depends(get_current_tenant),
+                       db: Session = Depends(get_db)):
+    """Tampilkan kunci terenkripsi RSA agar tenant bisa salin dan kirim ke admin."""
+    grant = grant_service.get_tenant_grant_or_404(db, grant_id, user)
+    if grant.status != GrantStatus.approved or grant.wrapped_key is None:
+        flash(request, "err", "Kunci tidak tersedia.")
+        return redirect("/tenant/access-requests")
+
+    # Re-encrypt K with admin's public key untuk ditampilkan
+    admin_pk = db.scalar(
+        select(PublicKey).where(PublicKey.user_id == grant.requester_id)
+    )
+    if admin_pk is None:
+        flash(request, "err", "Public key admin tidak ditemukan.")
+        return redirect("/tenant/access-requests")
+
+    K = shares.reveal_key(grant.id, grant.wrapped_key)
+    encrypted_key_text = asym.encrypt_key(admin_pk.pem, K)
+
+    return render(request, "tenant/show_key.html",
+                  grant=grant,
+                  encrypted_key=encrypted_key_text)
 
 
 def _items(db: Session, user: User) -> dict[str, SecretItem]:
@@ -40,8 +165,10 @@ def _items(db: Session, user: User) -> dict[str, SecretItem]:
 
 @router.get("")
 def home(request: Request, user: User = Depends(get_current_tenant), db: Session = Depends(get_db)):
+    pending_count = grant_service.count_pending_for_tenant(db, user)
     return render(request, "tenant/home.html", room=user.room, items=_items(db, user),
-                  kinds=("profile",) + DOC_KINDS)
+                  kinds=("profile",) + DOC_KINDS, pending_count=pending_count)
+
 
 
 def _validate_profile(form: dict[str, str]) -> list[str]:
@@ -159,3 +286,4 @@ def request_deletion(request: Request, reason: str = Form(""),
     who = "your kos owner" if req.owner_id is not None else "the admin"
     flash(request, "ok", f"Request sent. It will be deleted once {who} approves it.")
     return redirect("/tenant/deletion-request")
+

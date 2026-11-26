@@ -3,6 +3,16 @@
 {% block content %}
 <div class="card">
   <h1 class="text-xl font-semibold">Welcome</h1>
+  {% if pending_count > 0 %}
+  <div class="flash-err mt-3">
+    ⚠️ Anda memiliki <strong>{{ pending_count }}</strong> permintaan akses data yang menunggu keputusan Anda.
+    <a href="/tenant/access-requests" class="underline font-medium">Lihat sekarang →</a>
+  </div>
+  {% endif %}
+
+  <p class="mt-1 text-sm text-slate-600">
+    {% if room %}You live in {{ room.kos.name }}, room {{ room.number }}.{% else %}You no longer have a room here.{% endif %}
+  </p>
   <p class="mt-1 text-sm text-slate-600">
     {% if room %}You live in {{ room.kos.name }}, room {{ room.number }}.{% else %}You no longer have a room here.{% endif %}
   </p>

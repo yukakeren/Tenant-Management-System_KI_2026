@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Privasi data · KosanKu{% endblock %}
+{% block content %}
+
+{# ============ BAGIAN 1: RIWAYAT PERMINTAAN AKSES ============ #}
+<div class="card mb-6">
+  <h1 class="text-xl font-semibold">Permintaan akses data</h1>
+  <p class="mt-1 text-sm text-slate-600">
+    Admin dapat meminta akses ke dokumen Anda. Anda yang memutuskan: setujui atau tolak.
+    Dokumen yang dibagikan adalah <strong>salinan snapshot</strong> saat Anda menyetujui.
+  </p>
+
+  {% if grants %}
+  <div class="overflow-x-auto mt-4">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Waktu diminta</th>
+          <th>Peminta</th>
+          <th>Dokumen</th>
+          <th>Alasan</th>
+          <th>Status</th>
+          <th>Berlaku sampai</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in grants %}
+        <tr>
+          <td class="text-xs text-slate-500">{{ g.requested_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ g.requester.email }}</td>
+          <td>{{ g.kinds }}</td>
+          <td class="text-sm">{{ g.reason[:80] }}{{ '…' if g.reason|length > 80 }}</td>
+          <td>
+            <span class="badge">
+              {{ {'pending':'Diproses','approved':'Disetujui','rejected':'Ditolak',
+                  'revoked':'Dicabut','expired':'Kedaluwarsa'}[g.status.value] }}
+            </span>
+          </td>
+          <td class="text-xs text-slate-500">
+            {% if g.expires_at %}{{ g.expires_at.strftime('%Y-%m-%d %H:%M') }}{% else %}–{% endif %}
+          </td>
+          <td class="flex gap-2">
+            {# --- Aksi berdasarkan status --- #}
+            {% if g.status.value == 'pending' %}
+              <form method="post" action="/tenant/access-requests/{{ g.id }}/approve">
+                <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+                <button class="btn" type="submit">Setujui</button>
+              </form>
+              <form method="post" action="/tenant/access-requests/{{ g.id }}/reject">
+                <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+                <button class="btn-danger" type="submit">Tolak</button>
+              </form>
+
+            {% elif g.status.value == 'approved' %}
+              <a href="/tenant/access-requests/{{ g.id }}/key" class="btn-light">Tampilkan kunci</a>
+              <form method="post" action="/tenant/access-requests/{{ g.id }}/revoke">
+                <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+                <button class="btn-danger" type="submit">Cabut akses</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="mt-4 text-sm text-slate-500">Belum ada permintaan akses.</p>
+  {% endif %}
+</div>
+
+{# ============ BAGIAN 2: HAPUS DATA SAYA (EXISTING) ============ #}
+<div class="card">
+  <h1 class="text-xl font-semibold">Hapus data saya</h1>
+  <p class="mt-2 text-sm text-slate-700">
+    Setelah Anda pindah, Anda bisa meminta semua data dihapus. Kami menghapus setiap salinan
+    terenkripsi dan menghancurkan kunci Anda, sehingga cadangan yang tertinggal tidak bisa dibaca.
+    Akun Anda ditutup setelahnya.
+  </p>
+
+  {% if req %}
+    <div class="mt-4 text-sm">
+      Permintaan terakhir ({{ req.requested_at.strftime('%Y-%m-%d') }}): <span class="badge">{{ req.status.value }}</span>
+      {% if req.status.value == 'pending' %}<p class="mt-1 text-slate-600">Menunggu {{ 'pemilik kos' if req.owner_id else 'admin' }} untuk menyetujui.</p>{% endif %}
+      {% if req.status.value == 'rejected' %}<p class="mt-1 text-slate-600">Alasan: {{ req.reject_reason }}</p>{% endif %}
+    </div>
+  {% endif %}
+
+  {% if not req or req.status.value != 'pending' %}
+    <form method="post" action="/tenant/deletion-request" class="mt-6 space-y-4">
+      <input type="hidden" name="csrf" value="{{ request.session.csrf }}">
+      <div>
+        <label class="label" for="reason">Alasan (opsional)</label>
+        <textarea class="input" id="reason" name="reason" rows="3" maxlength="1000"></textarea>
+      </div>
+      <p class="text-sm text-slate-600">{{ 'Pemilik kos' if room else 'Anda tidak punya kamar, jadi admin' }} harus menyetujui terlebih dahulu.</p>
+      <button class="btn-danger">Minta penghapusan</button>
+    </form>
+  {% endif %}
+</div>
+
+{% endblock %}
